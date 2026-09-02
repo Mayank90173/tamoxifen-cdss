@@ -1,4 +1,3 @@
-%%writefile app.py
 import streamlit as st
 import numpy as np
 
@@ -8,21 +7,19 @@ st.set_page_config(page_title="RWD-PGx Advanced Systems Oncology Core", layout="
 # Advanced Styling with Soft Clinical Slate Theme & Live Molecular Fragment Streams
 st.markdown("""
     <style>
-    /* Executive Slate-Grey and Tech-Teal Anti-Glare Theme */
     .stApp { background-color: #f1f5f9; color: #0f172a; }
     h1, h2, h3, h4, p, span, label { color: #1e293b !important; }
     div[data-baseweb="select"] > div { background-color: #ffffff !important; color: #0f172a !important; border: 1px solid #cbd5e1 !important; }
     div[role="radiogroup"] label { color: #0f172a !important; }
     
-    /* 🧬 Premium Medical Banner with Flowing Molecular Nodes */
     .clinical-banner {
         background: linear-gradient(135deg, #0f172a 0%, #115e59 100%);
         border-radius: 14px; padding: 2.5rem; color: #f8fafc; margin-bottom: 2rem;
-        position: relative; overflow: hidden; box-shadow: 0 10px 25px rgba(17, 94, 89, 0.15);
+        box-shadow: 0 10px 25px rgba(17, 94, 89, 0.15);
+        position: relative; overflow: hidden;
     }
     .clinical-banner h2 { color: #ffffff !important; font-weight: 700 !important; margin: 0; }
     
-    /* Pure CSS Light Moving Molecular/DNA Fragment Streams */
     .molecule-stream-1, .dna-fragment-2 {
         position: absolute; background: rgba(56, 189, 248, 0.4); border-radius: 50%;
     }
@@ -40,7 +37,6 @@ st.markdown("""
         100% { left: 105%; transform: translateY(10px) scale(1); }
     }
     
-    /* Advanced Medical Diagnostic Cards */
     .med-card {
         background-color: white; border-radius: 12px; padding: 1.5rem; border: 1px solid #cbd5e1;
         margin-bottom: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.02);
@@ -51,7 +47,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Render Animated Top Banner
 st.markdown("""
     <div class="clinical-banner">
         <div class="molecule-stream-1"></div>
@@ -84,12 +79,12 @@ with col2:
     ])
     thyroid_axis = st.selectbox("Thyroid Axis Concomitant Therapy", ["None", "Levothyroxine (TBG Competition Hazard)"])
     metabolic_agent = st.selectbox("Metabolic / Glycemic Co-medication", ["None", "Metformin (OCT1 Translocation Inter-play)"])
-    cv_agent = st.selectbox("Cardiovascular Substrate Competition", ["None", "Metoprolol (Competitive CYP2D6 Affinity)"])
+    cv_agent = st.selectbox("Antihypertensive Regimen", ["None", "Metoprolol (Competitive CYP2D6 Affinity)"])
 
 with col3:
     st.markdown("### 📊 Real-World Data & Lab Biomarkers")
     adherence = st.slider("Medication Adherence (MEMS Smart-Cap Telemetry %)", 10, 100, 95) / 100.0
-    days_on_therapy = st.number_input("Days Since Regimen Initiation (Steady-State Windows)", min_value=1, max_value=365, value=45)
+    days_on_therapy = st.number_input("Days Since Treatment Initiation (Steady-State Windows)", min_value=1, max_value=365, value=45)
     ast_alt = st.number_input("Serum AST / ALT Levels (U/L) [Hepatocyte Stress]", min_value=10, max_value=500, value=35)
     prior_morbidity = st.multiselect("Prior Chronic Pathological Architecture", ["Deep Vein Thrombosis (DVT)", "Fatty Liver (NAFLD)", "Retinopathy"])
 
@@ -101,7 +96,6 @@ elif "*1/*1" in cyp2d6_genotype: base_metabolite = 22.3
 elif "*1/*10" in cyp2d6_genotype: base_metabolite = 14.0
 else: base_metabolite = 30.5
 
-# DDI Modifiers
 if "Paroxetine" in psych_inhibitor: base_metabolite *= 0.25 
 elif "Amiodarone" in psych_inhibitor: base_metabolite *= 0.60
 if "Metoprolol" in cv_agent: base_metabolite *= 0.85
@@ -153,11 +147,9 @@ with out_col1:
 with out_col2:
     st.markdown("### 🫁 Multi-Organ Toxicological Mechanism & Condition-Specific Diets")
     
-    # --- 🥦 BRAND NEW FEATURE: CONDITION-SPECIFIC DYNAMIC DIETARY INTERVENTIONS ---
     st.markdown("<div class='med-card'>", unsafe_allow_html=True)
     st.markdown("<div class='med-card-header' style='background-color: #0f172a;'>🥦 CONDITION-SPECIFIC DIETARY EXCLUSIONS & CONTRAINDICATIONS</div>", unsafe_allow_html=True)
     
-    # Base mandatory warning for Grapefruit
     st.error("🚫 **Universal Restriction:** Avoid **Grapefruit Juice** completely. Furanocoumarins cause irreversible mechanism-based suicide inhibition of intestinal/hepatic **CYP3A4**, crashing active transformation cascades.")
     
     if "Fatty Liver (NAFLD)" in prior_morbidity or liver_stress == "Severe":
@@ -167,3 +159,9 @@ with out_col2:
     elif cr_cl < 30:
         st.warning("🍊 **Renal Glucuronide Excretion Diet Active:** Severe clearance delays detected. **Contraindicated:** High sodium and unmitigated high protein loads that aggravate glomerular hyperfiltration stress matrices.")
     else:
+        st.success("✅ **Standard Metabolic Diet Active:** Balance caloric intake; maintain uniform fat schedules to secure static GI transit times and prevent erratic **Tmax** shifts.")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("<div class='med-card'>", unsafe_allow_html=True)
+    if liver_stress == "Severe":
+        st.markdown("<div class='med-card-header' style='background-color: #b91c1c;'>🟫 HEPATIC STATUS: SEVERE OVERLOAD (DILI RISK)</div>", unsafe_allow_html=True)
