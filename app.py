@@ -22,6 +22,7 @@ st.markdown("""
         border-radius: 16px; padding: 2.5rem; position: relative; overflow: hidden;
         border: 2px solid #0d9488; box-shadow: 0 20px 40px rgba(13, 148, 136, 0.2); margin-bottom: 2.5rem;
     }
+    .clinical-banner h1 { color: #ffffff !important; font-weight: 700 !important; margin: 0; }
     
     /* 🔴 Floating Parent Drug Atoms and Bound Metabolite Vectors */
     .binding-atom-1, .binding-atom-2, .receptor-pocket {
@@ -107,7 +108,7 @@ with col2:
         "None"
     ])
     thyroid_axis = st.selectbox("Thyroid Pathway Axis", ["Levothyroxine (TBG Competition Hazard)", "None"])
-    metabolic_agent = st.selectbox("Glycemic Control Axis", ["Metformin (OCT1 Translocation Inter-play)", "None"])
+    metabolic_agent = st.selectbox("Glycemic Control Axis", ["Metformin (OCT1 Translocalization Inter-play)", "None"])
     cv_agent = st.selectbox("Cardiovascular Substrate Clash", ["Metoprolol (Competitive CYP2D6 Affinity)", "None"])
 
 with col3:
@@ -179,6 +180,3 @@ if run_engine:
         guideline_source = "CPIC / NCCN Standard Adjuvant Protocols"
         dose_color = "#10b981"
 
-    # --- RENDER EXPERT INSTITUTIONAL ADVISORY REPORT ---
-    st.markdown(f"""
-    <div class="diagnostic-report-frame">
