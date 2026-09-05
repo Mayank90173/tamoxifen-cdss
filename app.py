@@ -177,8 +177,8 @@ status_alert(f"**{clinical_directive}** — {directive_notes}")
 st.header("📈 5. Projected 30-Day Pharmacokinetic (PK) Accumulation Curve")
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=time_axis, y=kinetics_curve, mode='lines+markers', name='Endoxifen Level Curve', line=dict(color='#10b981', width=3)))
-# Fixed: empty tracking arrays mapped properly to a clean day-based list range
-fig.add_trace(go.Scatter(x=time_axis, y=[5.97]*30, mode='lines', name='Therapeutic Target Floor', line=dict(color='#ef4444', dash='dash')))
+# Fixed target threshold line using static literal numerical array limits to ensure runtime stability
+fig.add_trace(go.Scatter(x=time_axis, y=[5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97], mode='lines', name='Therapeutic Target Floor', line=dict(color='#ef4444', dash='dash')))
 fig.update_layout(xaxis_title="Days Since Dosing Cycle Initialization", yaxis_title="Active Plasma Level (ng/mL)", height=340, margin=dict(l=20, r=20, t=20, b=20))
 st.plotly_chart(fig, use_container_width=True)
 
@@ -186,5 +186,3 @@ st.plotly_chart(fig, use_container_width=True)
 st.header("📑 6. Systematic Deep PGx Translation Report")
 st.markdown(f"""
     <div class="swiss-card" style="background-color: #0d1527; border-left: 5px solid #38bdf8; margin-bottom: 2rem;">
-        <h4 style="color:#38bdf8; margin-top:0; font-weight:700;">🔬 DEEP GENOMIC TRANSLATIONAL PHARMACOLOGY DISPATCH</h4>
-        <p style="font-size:14px; line-height:1.6; color:#e2e8f0; margin-bottom:12px;">
