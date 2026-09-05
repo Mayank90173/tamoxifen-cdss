@@ -146,8 +146,6 @@ hys_law_triggered = (serum_ast > 120 or serum_alt > 120) and (total_bilirubin > 
 if hys_law_triggered: base_flux *= 0.35
 
 calculated_endoxifen = round(base_flux * compliance * (1 - np.exp(-ke * days_on_therapy)), 2)
-
-# Dynamic 30-Day Simulation Array Fix
 time_axis = list(range(1, 31))
 kinetics_curve = [round(base_flux * compliance * (1 - np.exp(-ke * t)), 2) for t in time_axis]
 
@@ -184,4 +182,7 @@ else:
     directive_notes = f"Steady-state target successfully achieved ({calculated_endoxifen} ng/mL). Therapeutic window optimized."
     ui_status_color = "#10b981"
 
-# --- 📈 PHARMACOKINETIC SIMULATION BLOCK ---
+# --- 🎯 DISPLAY MAIN PANEL DISPATCH ---
+st.markdown(f"""
+    <div class="swiss-card">
+        <h3 style='color: #ffffff; margin-top:0;'>📊 INTERACTIVE MEDICAL DISPATCH PANEL</h3>
