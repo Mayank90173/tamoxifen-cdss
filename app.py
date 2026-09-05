@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import io
+import plotly.graph_objects as go
 
 # 1. Premium Institutional Page & Swiss UI Setup
 st.set_page_config(
@@ -10,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Premium Cybernetic Medical HUD Aesthetic
+# Core Cybernetic HUD Styling Layout Matrix
 st.markdown("""
     <style>
     .stApp { background-color: #060913; color: #f8fafc; }
@@ -32,10 +33,10 @@ st.markdown("""
 
 st.markdown("""
     <div class="swiss-premium-banner">
-        <span class="system-status">✦ SWISS CLINICAL PHARMACOGENOMICS MATRIX // EVIDENCE-BASED BENCHMARK</span>
-        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 TRANSLATIONAL SYSTEMS PHARMACOLOGY COMMAND UNIT</h1>
+        <span class="system-status">✦ CLINICAL TRANSLATIONAL ONCOLOGY HUB // HCP AUDIT STREAM LEVEL 4</span>
+        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 TRANSLATIONAL SYSTEMS PHARMACOLOGY PLATFORM</h1>
         <p style='color: #94a3b8 !important; margin: 8px 0 0 0; font-size:14px; font-family: monospace;'>
-            H-Informatics Engine • Lead Portfolio Architecture: Dr. Mayank Virmani | PharmD & PV Scientist
+            H-Informatics Core Architecture • Lead PV Portfolio: Dr. Mayank Virmani | PharmD & PV Scientist
         </p>
     </div>
 """, unsafe_allow_html=True)
@@ -47,15 +48,16 @@ if 'patient_ledger' not in st.session_state:
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.markdown("### 📋 1. Patient Profile & Core Genotype")
-    pt_id = st.text_input("Unique Patient System Hash ID", "ZRH-2026-9843X")
-    age = st.slider("Patient Chronological Age", 18, 100, 64)
+    st.markdown("### 📋 1. Patient Profile & Tumor Core")
+    pt_id = st.text_input("Patient System Hash ID", "ZRH-2026-9843X")
+    age = st.slider("Chronological Age (Years)", 18, 100, 64)
     weight = st.slider("Total Mass Target (kg)", 35, 150, 82)
     gender = st.radio("Biological Configuration", ["Female", "Male"], horizontal=True)
+    diet_preference = st.radio("Patient Dietary Vector Configuration", ["Vegetarian Profile", "Non-Vegetarian Profile"], horizontal=True)
     
-    cyp2d6_profile = st.selectbox("CYP2D6 Genomic Architecture (CPIC Focus)", [
+    cyp2d6_profile = st.selectbox("CYP2D6 Genomic Architecture (CPIC Target Axis)", [
         "*1xN/*1 (Ultra-rapid Metabolizer - Functional Activity Score: >2.0)",
-        "*1/*1 (Normal Metabolizer - Default Baseline)", 
+        "*1/*1 (Normal Metabolizer - Baseline Metabolic Velocity)", 
         "*1/*10 (Intermediate Metabolizer - Impaired Flux Spectrum)", 
         "*4/*4 (Null Allele - Poor Metabolizer - Total Phenoconversion)"
     ])
@@ -109,7 +111,7 @@ gender_multiplier = 0.85 if gender == "Female" else 1.0
 calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_multiplier, 1)
 ke = 0.028 if calculated_crcl >= 60 else 0.045 if calculated_crcl >= 30 else 0.065
 
-# 1. CYP2D6 Pathway Flux Calculations
+# 1. Primary CYP2D6 Pathway Flux Calculations
 if "*4/*4" in cyp2d6_profile: base_flux = 7.2
 elif "*1/*10" in cyp2d6_profile: base_flux = 13.8
 elif "*1/*1" in cyp2d6_profile: base_flux = 24.5
@@ -137,53 +139,41 @@ calculated_endoxifen = round(base_flux * compliance * (1 - np.exp(-ke * days_on_
 time_axis = list(range(1, 31))
 kinetics_curve = [round(base_flux * compliance * (1 - np.exp(-ke * t)), 2) for t in time_axis]
 
-chart_dataframe = pd.DataFrame({
-    'Concentration (ng/mL)': kinetics_curve,
-    'Therapeutic Floor Limit': [5.97] * 30
-}, index=time_axis)
-
-# --- 🎯 CLINICAL GUIDELINE AND CRITICAL DOSE ADJUSTMENT ADVICE ENGINE ---
-evidence_source = "CPIC Guidelines (2023 Update) & FDA Pharmacovigilance Mandates"
+# --- CLINICAL PROTOCOL JUDGEMENT LOGIC (HCP GRADE) ---
+evidence_source = "CPIC Guidelines (2023 Update) & FDA Oncology Pharmacovigilance Mandates"
 
 if "Negative Status" in er_status:
-    clinical_directive = "TERMINATE ENDOCRINE SYSTEM PROTOCOL IMMEDIATELY"
-    dose_advice = "Tamoxifen therapy possesses zero utility due to lack of target receptor binding architecture."
-    drug_alternative = "Switch patient immediately to systemic standard chemotherapy protocols or targeted biological agents."
+    clinical_directive = "CRITICAL DIRECTIVE: TERMINATE TAMOXIFEN PROTOCOL IMMEDIATELY"
+    dose_advice = "Tamoxifen therapy displays structural futility due to absolute absence of ERα nuclear receptor targets."
+    drug_alternative = "Discontinue anti-estrogens. Evaluate alternative cytotoxic chemotherapy regimens or appropriate monoclonal antibody configurations."
     status_alert = st.error
 elif hys_law_triggered or "Deep Vein Thrombosis (DVT Cluster Risk)" in comorbidities:
-    clinical_directive = "CRITICAL MEDICAL SUSPENSION ORDERED"
-    dose_advice = "Hold all active endocrine dosing cycles to eliminate life-threatening hazards."
-    drug_alternative = "🚨 EMERGENCY STAT. Severe Drug-Induced Liver Injury (Hy's Law) or acute DVT risk verified. Switch to non-estrogenic therapeutic tracks if stable."
+    clinical_directive = "CRITICAL DIRECTIVE: MANDATORY MEDICAL SUSPENSION ADVISED"
+    dose_advice = "Hold all active endocrine dosing vectors immediately to mitigate catastrophic safety events."
+    drug_alternative = "🚨 DILl/THROMBOSIS WARNING: Active Hy's Law parameters or extreme peripheral thromboembolic risk verified. Switch to alternative oncology maintenance lines once micro-structural indices stabilize."
     status_alert = st.error
 elif "*4/*4" in cyp2d6_profile or "Paroxetine" in cyp2d6_inhibitor:
-    # Genetic non-responders or phenoconversion states where raising Tamoxifen dose fails completely
-    clinical_directive = "PATHWAY FAILURE DETECTED: PERMANENT DRUG SWITCH REQUIRED"
-    dose_advice = "Dose escalation to 40mg daily will completely fail due to functional absence of the CYP2D6 pathway."
-    drug_alternative = "Discontinue Tamoxifen. Switch patient instantly to Aromatase Inhibitors: Anastrozole (1mg daily) or Letrozole (2.5mg daily). Add GnRH agonist if premenopausal."
+    clinical_directive = "CRITICAL DIRECTIVE: ENZYME PATHWAY BLOCKADE - PERMANENT SWITCH REQUIRED"
+    dose_advice = "Dose escalation to 40mg daily will fail completely due to structural functional invalidation of the CYP2D6 metabolizing loop."
+    drug_alternative = "Switch patient immediately to third-generation Aromatase Inhibitors: Anastrozole (1mg daily) or Letrozole (2.5mg daily). Add ovarian suppression if premenopausal."
     status_alert = st.error
 elif calculated_endoxifen < 5.97:
-    clinical_directive = "SUB-THERAPEUTIC PHARMACOKINETIC WINDOW DETECTED"
-    dose_advice = "Increase standard Tamoxifen maintenance dose from 20mg to 40mg daily under precise monitoring."
-    drug_alternative = "Address compliance issues or evaluate shunting inhibitors. Consider alternative Aromatase Inhibitor switch if levels remain low after 14 days."
+    clinical_directive = "OPERATIONAL DIRECTIVE: SUB-THERAPEUTIC PHARMACOKINETIC SPECTRUM DETECTED"
+    dose_advice = "Escalate standard Tamoxifen maintenance dose from 20mg to 40mg daily under strict serum level monitoring."
+    drug_alternative = "Address adherence barriers. Evaluate secondary shunts. If active concentration profiles fail to clear target floor within 14 days, initiate Aromatase Inhibitor transition."
     status_alert = st.warning
 else:
-    clinical_directive = "OPTIMAL THERAPEUTIC MAINTENANCE STABILIZED"
+    clinical_directive = "OPERATIONAL DIRECTIVE: OPTIMAL THERAPEUTIC MAINTENANCE STABILIZED"
     dose_advice = "Maintain standard Tamoxifen protocol at 20mg daily."
-    drug_alternative = "No switch necessary. Systemic active metabolite levels are safe for long-term breast cancer recurrence prevention."
+    drug_alternative = "No therapeutic shunting required. Target steady-state concentration is optimal for long-term tumor recurrence prevention."
     status_alert = st.success
 
-# --- 🎯 INTERACTIVE EVALUATION HUD PANEL ---
+# --- 🎯 INTERACTIVE METRIC DISPATCH ---
 st.header("📊 4. Real-Time Clinical Evaluation Panel")
 m1, m2, m3 = st.columns(3)
-m1.metric("Calculated Renal CrCl", f"{calculated_crcl} mL/min")
-m2.metric("Steady-State Endoxifen", f"{calculated_endoxifen} ng/mL")
-m3.metric("Minimum Therapeutic Cutoff", "5.97 ng/mL")
+m1.metric("Calculated Renal CrCl Index", f"{calculated_crcl} mL/min")
+m2.metric("Steady-State Endoxifen (Css)", f"{calculated_endoxifen} ng/mL")
+m3.metric("Therapeutic Target Floor", "5.97 ng/mL")
 
 st.markdown("#### Operational Directive Command")
 status_alert(f"**{clinical_directive}**")
-
-# Display Advanced Clinical Guidelines Outputs
-st.info(f"📚 **Clinical Guideline Source Matrix:** {evidence_source}")
-
-with st.expander("🔬 View Automated Dose Adjustment & Alternative Drug Recommendations", expanded=True):
-    st.markdown(f"**Recommended Dose Strategy:** {dose_advice}")
