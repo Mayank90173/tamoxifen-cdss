@@ -1,9 +1,7 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import json
 import io
-import plotly.graph_objects as go
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -142,8 +140,14 @@ hys_law_triggered = (serum_ast > 120 or serum_alt > 120) and (total_bilirubin > 
 if hys_law_triggered: base_flux *= 0.35
 
 calculated_endoxifen = round(base_flux * compliance * (1 - np.exp(-ke * days_on_therapy)), 2)
+
+# Native Streamlit Chart Data Builder Setup
 time_axis = list(range(1, 31))
 kinetics_curve = [round(base_flux * compliance * (1 - np.exp(-ke * t)), 2) for t in time_axis]
+chart_dataframe = pd.DataFrame({
+    'Current Dynamic Concentration (ng/mL)': kinetics_curve,
+    'Therapeutic Floor Target': [5.97] * 30
+}, index=time_axis)
 
 # --- DIRECTIVE PROTOCOL VERDICT ---
 if "Negative Status" in er_status:
@@ -173,16 +177,14 @@ m3.metric("Minimum Therapeutic Cutoff", "5.97 ng/mL")
 st.markdown("#### Operational Directive Command")
 status_alert(f"**{clinical_directive}** — {directive_notes}")
 
-# --- 📈 PHARMACOKINETIC SIMULATION MATRIX ---
+# --- 📈 NATIVE UNCRASHABLE PHARMACOKINETIC SIMULATION MATRIX ---
 st.header("📈 5. Projected 30-Day Pharmacokinetic (PK) Accumulation Curve")
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=time_axis, y=kinetics_curve, mode='lines+markers', name='Endoxifen Level Curve', line=dict(color='#10b981', width=3)))
-# Fixed target threshold line using static literal numerical array limits to ensure runtime stability
-fig.add_trace(go.Scatter(x=time_axis, y=[5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97, 5.97], mode='lines', name='Therapeutic Target Floor', line=dict(color='#ef4444', dash='dash')))
-fig.update_layout(xaxis_title="Days Since Dosing Cycle Initialization", yaxis_title="Active Plasma Level (ng/mL)", height=340, margin=dict(l=20, r=20, t=20, b=20))
-st.plotly_chart(fig, use_container_width=True)
+st.line_chart(chart_dataframe, height=300, use_container_width=True)
 
 # --- 📑 DYNAMIC SYSTEMATIC CLINICAL REPORT ---
 st.header("📑 6. Systematic Deep PGx Translation Report")
 st.markdown(f"""
     <div class="swiss-card" style="background-color: #0d1527; border-left: 5px solid #38bdf8; margin-bottom: 2rem;">
+        <h4 style="color:#38bdf8; margin-top:0; font-weight:700;">🔬 DEEP GENOMIC TRANSLATIONAL PHARMACOLOGY DISPATCH</h4>
+        <p style="font-size:14px; line-height:1.6; color:#e2e8f0; margin-bottom:12px;">
+            <b>Biotransformation Analysis:</b> Patient <b>{pt_id}</b> has been evaluated across an expanded pharmacogenomics network. Primary activation velocity is controlled by a <b>{cyp2d6_profile}</b> background, with active secondary phase I pathways shunted by <b>{cyp2c9_c19_profile}</b> configurations and phase II active conjugation modulated via <b>{sult1a1_cnv}</b> vectors. 
