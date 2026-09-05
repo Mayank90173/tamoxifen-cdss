@@ -1,171 +1,173 @@
 import streamlit as st
 import numpy as np
+import pandas as pd
+import json
+import base64
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 
-# 1. Advanced Institutional Page Settings (Premium Swiss Medical UI)
-st.set_page_config(page_title="Swiss-Level Translational Systems Pharmacology Command Center", layout="wide", initial_sidebar_state="collapsed")
+# 1. Premium Institutional Page & Swiss UI Setup
+st.set_page_config(
+    page_title="Zurich Translational Systems Pharmacology Command Center", 
+    layout="wide", 
+    initial_sidebar_state="expanded"
+)
 
+# High-Tech Cybernetic Medical Aesthetic & Morphing Organ Canvas Elements
 st.markdown("""
     <style>
-    /* Zurich Corporate Clinical Aesthetic - Soft Dark Slate Matrix */
-    .stApp { background-color: #090d16; color: #f1f5f9; }
-    h1, h2, h3, h4, p, span, label, div { font-family: 'Inter', system-ui, sans-serif; }
-    div[data-baseweb="select"] > div { background-color: #111827 !important; color: #ffffff !important; border: 1px solid #1f2937 !important; border-radius: 8px !important; }
-    div[data-baseweb="select"] * { color: #ffffff !important; }
-    input { background-color: #111827 !important; color: #ffffff !important; border: 1px solid #1f2937 !important; }
+    .stApp { background-color: #060913; color: #f8fafc; }
+    h1, h2, h3, h4, p, span, label, div { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
     
-    /* Premium Animated Receptor Canvas Banner */
-    .swiss-banner {
-        background: linear-gradient(135deg, #022c22 0%, #0f172a 100%);
-        border-radius: 16px; padding: 2.5rem; position: relative; overflow: hidden;
-        border-left: 6px solid #10b981; box-shadow: 0 20px 40px rgba(16, 185, 129, 0.1); margin-bottom: 2.5rem;
+    /* Interactive Cybernetic Medical Banner */
+    .swiss-premium-banner {
+        background: linear-gradient(135deg, #022c22 0%, #0b1329 50%, #1e1b4b 100%);
+        border-radius: 20px; padding: 3rem 2.5rem; position: relative; overflow: hidden;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); margin-bottom: 2.5rem;
     }
     
-    /* 🧬 Live Atom Dynamics (100% Streamlit Cloud Error-Free Animators) */
-    .atom-core-1, .atom-core-2 {
-        position: absolute; border-radius: 50%;
+    /* Dynamic Cyber-Medical Organ & Helix HUD Simulation */
+    .biomatrix-dna {
+        position: absolute; width: 4px; height: 120px; background: linear-gradient(to bottom, #10b981, transparent);
+        right: 8%; top: 10%; opacity: 0.4; animation: dnaPulse 3s ease-in-out infinite alternate;
     }
-    .atom-core-1 { width: 14px; height: 14px; background: #0ea5e9; top: 40%; left: -5%; animation: receptorLock 6s ease-in-out infinite; box-shadow: 0 0 15px #0ea5e9; }
-    .atom-core-2 { width: 10px; height: 10px; background: #ef4444; top: 65%; left: -10%; animation: receptorLock 4s linear infinite 2s; box-shadow: 0 0 15px #ef4444; }
-    @keyframes receptorLock {
-        0% { left: -5%; transform: scale(1); }
-        70% { left: 80%; top: 45%; transform: scale(1.4); background: #10b981; box-shadow: 0 0 25px #10b981; }
-        100% { left: 110%; top: 50%; transform: scale(1); }
+    .biomatrix-kidney {
+        position: absolute; width: 30px; height: 45px; border: 2px dashed #0ea5e9; border-radius: 40% 60% 60% 40% / 40% 40% 60% 60%;
+        right: 15%; top: 35%; opacity: 0.25; animation: organFilter 5s linear infinite;
+    }
+    .biomatrix-liver {
+        position: absolute; width: 55px; height: 35px; border: 2px dashed #f43f5e; border-radius: 70% 30% 50% 50% / 60% 40% 60% 40%;
+        right: 4%; top: 50%; opacity: 0.25; animation: liverMetabolize 4s ease-in-out infinite alternate;
     }
     
-    /* Swiss Institutional Output Frame Styling */
-    .swiss-report-frame {
-        background-color: #111827; border-radius: 14px; padding: 2.2rem;
-        border: 1px solid #1f2937; box-shadow: 0 15px 30px rgba(0,0,0,0.5); margin-top: 2rem;
+    @keyframes dnaPulse { 0% { transform: scaleY(0.8) translateY(0px); opacity: 0.2; } 100% { transform: scaleY(1.2) translateY(10px); opacity: 0.6; } }
+    @keyframes organFilter { 0% { transform: rotate(0deg) scale(1); border-color: #0ea5e9; } 50% { transform: rotate(5deg) scale(1.08); border-color: #38bdf8; } 100% { transform: rotate(0deg) scale(1); border-color: #0ea5e9; } }
+    @keyframes liverMetabolize { 0% { transform: skewX(-5deg) scale(0.95); filter: drop-shadow(0 0 2px #f43f5e); } 100% { transform: skewX(5deg) scale(1.05); filter: drop-shadow(0 0 12px #f43f5e); } }
+    
+    /* Institutional Panels */
+    .swiss-card {
+        background: rgba(17, 24, 39, 0.7); border-radius: 16px; padding: 2rem;
+        border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 2rem;
     }
-    .swiss-header-tag {
-        font-size: 1.2rem; font-weight: 700; color: #10b981; border-bottom: 2px solid #1f2937;
-        padding-bottom: 0.5rem; margin-bottom: 1.2rem; margin-top: 1.2rem; text-transform: uppercase; letter-spacing: 0.5px;
-    }
+    .system-status { font-size: 11px; font-family: monospace; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
     </style>
 """, unsafe_allow_html=True)
 
-# 2. Main Executive Banner with Live Molecular Target Capture
+# 2. Main Executive Diagnostic HUD Banner
 st.markdown("""
-    <div class="swiss-banner">
-        <div class="atom-core-1"></div>
-        <div class="atom-core-2"></div>
-        <h1 style='color: #ffffff !important; margin:0; font-size:28px; font-weight:800;'>🧬 SWISS-LEVEL SYSTEMS PHARMACOLOGY COMMAND UNIT</h1>
+    <div class="swiss-premium-banner">
+        <div class="biomatrix-dna"></div>
+        <div class="biomatrix-kidney"></div>
+        <div class="biomatrix-liver"></div>
+        <span class="system-status">✦ SWISS CLINICAL PHARMACOGENOMICS MATRIX // LEVEL 4 AUDIT</span>
+        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 TRANSLATIONAL SYSTEMS PHARMACOLOGY PLATFORM</h1>
         <p style='color: #94a3b8 !important; margin: 8px 0 0 0; font-size:14px; font-family: monospace;'>
-            H informatics System • Lead Consultant: Dr. Mayank Virmani | PharmD, PV Scientist Portfolio
+            H-Informatics Engine • Portfolio: Dr. Mayank Virmani | Lead Consultant PharmD & PV Scientist
         </p>
     </div>
 """, unsafe_allow_html=True)
 
+# Initialize Session State for Ledger Logs
+if 'patient_ledger' not in st.session_state:
+    st.session_state.patient_ledger = []
+
+# Layout Allocation for Core Parameters Matrix
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.markdown("#### 📋 Genotype & Menopausal Baseline")
-    age = st.slider("Patient Age (Years)", 18, 90, 63)
-    weight = st.slider("Patient Weight (kg)", 40, 120, 102)
+    st.markdown("### 📋 1. Patient Demographics & Genotype")
+    pt_id = st.text_input("Unique Patient System Hash ID", "ZRH-2026-9843X")
+    age = st.slider("Patient Chronological Age", 18, 100, 64)
+    weight = st.slider("Total Mass Target (kg)", 35, 150, 82)
+    gender = st.radio("Biological Configuration", ["Female (0.85 CrCl Skew)", "Male"], horizontal=True)
     
-    menopausal_status = st.selectbox("Menopausal Staging Axis", [
-        "Post-Menopausal (Peripheral Adipose Window)",
-        "Pre-Menopausal (Active Ovarian Loop)",
-        "Peri-Menopausal (Fluctuating Gonadotropin)"
+    cyp2d6_profile = st.selectbox("CYP2D6 Genomic Architecture (CPIC Tier-1)", [
+        "*1xN/*1 (Ultra-rapid Metabolizer - Functional Activity Score: >2.0)",
+        "*1/*1 (Normal Metabolizer - Baseline Metabolic Velocity)", 
+        "*1/*10 (Intermediate Metabolizer - Impaired Flux Spectrum)", 
+        "*4/*4 (Null Allele - Poor Metabolizer - Total Phenoconversion)")
     ])
-    
-    creatinine_marker = st.number_input("Glomerular Filtration Marker (Creatinine mg/dL)", min_value=0.3, max_value=10.0, value=3.00, step=0.1)
-    
-    cyp2d6_genotype = st.selectbox("CYP2D6 Genomic Profile (CPIC Focus)", [
-        "*1xN/*1 (Ultra-rapid Metabolizer - Activity Score: >2.0)",
-        "*1/*1 (Normal Metabolizer - Default Activity Score: 2.0)", 
-        "*1/*10 (Intermediate Metabolizer - Decreased Kinetic Flux)", 
-        "*4/*4 (Null Function - Poor Metabolizer - Activity Score: 0.0)"
-    ])
-    er_expression = st.radio("ERα Nuclear Receptor Status", ["Positive", "Negative"], horizontal=True)
+    er_status = st.radio("Estrogen Receptor Nuclear Expression (ERα)", ["Positive Status", "Negative Status"], horizontal=True)
 
 with col2:
-    st.markdown("#### 💊 Multi-Pathway Competitive DDIs")
-    psych_inhibitor = st.selectbox("CYP2D6 Mechanism-Based Inhibitors", [
-        "Amiodarone (Moderate Competitive Inhibition)",
-        "Paroxetine / Fluoxetine (Irreversible Phenoconversion)",
-        "None"
+    st.markdown("### 💊 2. Multi-Pathway Xenobiotic DDI Grid")
+    # Added critical interactants that fiercely alter Tamoxifen's conversion pathway or increase thrombosis risks
+    cyp2d6_inhibitor = st.selectbox("CYP2D6 Potent Core Inhibitors", [
+        "None / Sub-clinical",
+        "Paroxetine / Fluoxetine (Irreversible Structural Invalidation)",
+        "Bupropion / Quinidine (High Affinity Competitive Capture)",
+        "Sertraline / Duloxetine (Moderate Pathway Saturation)"
     ])
-    thyroid_axis = st.selectbox("Thyroid Axis Interaction", ["Levothyroxine (TBG Competition Hazard)", "None"])
-    metabolic_agent = st.selectbox("Glycemic Control Interaction", ["Metformin (OCT1 Translocation Inter-play)", "None"])
-    cv_agent = st.selectbox("Cardiovascular Substrate Clash", ["Metoprolol (Competitive CYP2D6 Affinity)", "None"])
+    cyp3a4_modulator = st.selectbox("Secondary CYP3A4 Pathway Competitors", [
+        "None / Normal Turnover",
+        "Rifampicin (Extreme CYP3A4 Enzyme Induction Hazard)",
+        "Ketoconazole / Clarithromycin (Severe Clearance Suppression Matrix)",
+        "St. John's Wort (Unregulated Botanical Induction)"
+    ])
+    pgp_pump = st.selectbox("P-Glycoprotein (P-gp / ABCB1) Efflux Status", [
+        "Standard Efflux",
+        "Verapamil / Amiodarone (P-gp Efflux Blockade - Alters Systemic Load)"
+    ])
 
 with col3:
-    st.markdown("#### 📊 Real-World Biomarkers & Morbidities")
-    adherence = st.slider("Medication Adherence (MEMS Telemetry %)", 10, 100, 70) / 100.0
-    days_on_therapy = st.number_input("Days Since Treatment Initiation", min_value=1, max_value=365, value=1)
+    st.markdown("### 📊 3. End-Organ Pathological Load")
+    creatinine = st.number_input("Serum Creatinine Clear Marker (mg/dL)", min_value=0.2, max_value=12.0, value=1.40, step=0.05)
+    serum_ast = st.number_input("Hepatic Transaminase AST (U/L)", min_value=5, max_value=3000, value=145, step=5)
+    serum_alt = st.number_input("Hepatic Transaminase ALT (U/L)", min_value=5, max_value=3000, value=165, step=5)
+    total_bilirubin = st.number_input("Total Bilirubin Mass Fraction (mg/dL)", min_value=0.1, max_value=20.0, value=2.6, step=0.1)
     
-    serum_ast = st.number_input("Hepatic Transaminase AST (U/L) [Range: 5-2000]", min_value=5, max_value=2000, value=160, step=5)
-    serum_alt = st.number_input("Hepatic Transaminase ALT (U/L) [Range: 5-2000]", min_value=5, max_value=2000, value=180, step=5)
-    plasma_tbil = st.number_input("Total Bilirubin Fraction (mg/dL) [Hy's Law Tracker]", min_value=0.1, max_value=15.0, value=2.5, step=0.1)
-    serum_tg = st.number_input("Serum Triglycerides (mg/dL)", min_value=50, max_value=800, value=233, step=5)
+    # Comorbidities that alter Tamoxifen's clinical safety window or therapeutic viability
+    comorbidities = st.multiselect("Active Pathological Architectural Overlays", [
+        "Deep Vein Thrombosis (DVT Cluster Risk)",
+        "Endometrial Hyperplasia Hyper-proliferation",
+        "Non-Alcoholic Fatty Liver Disease (NAFLD - Severe Met-Impairment)",
+        "Severe Retinopathy & Macular Degradation"
+    ], default=["Non-Alcoholic Fatty Liver Disease (NAFLD - Severe Met-Impairment)"])
     
-    prior_morbidity = st.multiselect("Prior Chronic Pathological Architecture", ["Deep Vein Thrombosis (DVT)", "Fatty Liver (NAFLD)", "Retinopathy"], default=["Fatty Liver (NAFLD)", "Retinopathy"])
+    compliance = st.slider("Adherence Control (MEMS Smart-Cap Telemetry %)", 10, 100, 85) / 100.0
+    days_on_therapy = st.number_input("Duration Cycle Status (Days Active)", min_value=1, max_value=730, value=24)
 
-# --- ADVANCED SWISS CLINICAL COMPULATION ENGINE ---
-cr_cl = round(((140 - age) * weight) / (72 * creatinine_marker) * 0.85, 1)
+# --- ADVANCED BIOTRANSFORMATION & KINETIC ENGINE ---
+# Renal Clearance Architecture (Cockcroft-Gault Optimization)
+gender_multiplier = 0.85 if "Female" in gender else 1.0
+calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_multiplier, 1)
 
-if "*4/*4" in cyp2d6_genotype: base_metabolite = 8.8
-elif "*1/*1" in cyp2d6_genotype: base_metabolite = 22.3
-elif "*1/*10" in cyp2d6_genotype: base_metabolite = 14.0
-else: base_metabolite = 30.5  
+# Pathway Baseline Velocity Assignment
+if "*4/*4" in cyp2d6_profile: base_flux = 7.2
+elif "*1/*10" in cyp2d6_profile: base_flux = 13.8
+elif "*1/*1" in cyp2d6_profile: base_flux = 24.5
+else: base_flux = 34.0  # Ultra-rapid
 
-if "Paroxetine" in psych_inhibitor: base_metabolite *= 0.25 
-elif "Amiodarone" in psych_inhibitor: base_metabolite *= 0.60
-if "Metoprolol" in cv_agent: base_metabolite *= 0.85
+# Xenobiotic Drug Interferences Cross-Multiplication
+if "Paroxetine" in cyp2d6_inhibitor: base_flux *= 0.15 # Strong complete knock-out
+elif "Bupropion" in cyp2d6_inhibitor: base_flux *= 0.30
+elif "Sertraline" in cyp2d6_inhibitor: base_flux *= 0.65
 
-hys_law_active = False
-if (serum_ast > 120 or serum_alt > 120) and (plasma_tbil > 2.4):
-    hys_law_active = True
+if "Rifampicin" in cyp3a4_modulator: base_flux *= 0.45 # Shunts path into inactive N-desmethyltamoxifen
+elif "Ketoconazole" in cyp3a4_modulator: base_flux *= 1.25 # Minor shunt enhancement
 
-liver_stress = "Fulminant Hepatotoxicity" if (serum_ast >= 500 or serum_alt >= 500) else "Severe" if (serum_ast >= 150 or serum_alt >= 150) else "Normal"
-if hys_law_active: base_metabolite *= 0.30
-elif liver_stress == "Severe": base_metabolite *= 0.75
+# Comorbidity Pathological Adjustments
+if "Non-Alcoholic Fatty Liver Disease" in comorbidities: base_flux *= 0.80
 
-calculated_endoxifen = round(base_metabolite * adherence * (1 - np.exp(-0.024 * days_on_therapy)), 1)
-t_half = 14 if cr_cl >= 60 else 24 if cr_cl >= 30 else 48
-survival_percentage = round((0.52 if age > 50 else 0.88) * 100, 1)
+# Hy's Law Diagnostic Mapping
+hys_law_triggered = (serum_ast > 3 * 40 or serum_alt > 3 * 40) and (total_bilirubin > 2.0)
+if hys_law_triggered: base_flux *= 0.35
 
-if "Negative" in er_expression:
-    suggested_regimen = "Terminate Endocrine Regimen Immediately"
-    regimen_timeline = "N/A - Structural absence of ERa receptor targets. Switch immediately to chemotherapy protocols."
-    guideline_source = "NCCN 2026 Adjuvant Staging Guideline"
-    dose_color = "#ef4444"
-elif hys_law_active or liver_stress == "Fulminant Hepatotoxicity":
-    suggested_regimen = "CRITICAL HALT / EMERGENCY SUSPENSION"
-    regimen_timeline = "🚨 HY'S LAW STATE MET. Severe drug-induced hepatocellular jaundice verified. High threat of acute liver necrosis. Discontinue therapy."
-    guideline_source = "FDA Post-Marketing Pharmacovigilance Fatal DILI Mandate"
-    dose_color = "#ef4444"
-elif days_on_therapy < 21:
-    suggested_regimen = "Maintain Standard Protocol (Observation Phase)"
-    regimen_timeline = f"Active Systemic Plasma Endoxifen Concentration is sub-therapeutic ({calculated_endoxifen} ng/mL) because Days on Therapy is {days_on_therapy}. System has NOT achieved Pharmacokinetic Steady-State. Maintain; do NOT alter kinetics prematurely."
-    guideline_source = "ASCO / International Pharmacogenomics Consensus"
-    dose_color = "#10b981"
+# Calculated Steady-State Endoxifen Level (Target therapeutic threshold: >5.97 ng/mL)
+calculated_endoxifen = round(base_flux * compliance * (1 - np.exp(-0.028 * days_on_therapy)), 2)
+
+# --- 4. ADVANCED PATIENT SPECIFIC DYNAMIC DIETARY ENGINE ---
+# Every single output combines clinical attributes uniquely to ensure no copy-paste replication
+dietary_matrix = []
+fluid_target = max(1.5, round((weight * 30) / 1000, 1))
+
+if "Deep Vein Thrombosis" in comorbidities:
+    dietary_matrix.append("• **Vascular Integrity Focus**: Absolute exclusion of high-dose isolated Vitamin K supplements; strictly regulate uniform intake of leafy greens. Integrate natural anti-inflammatory omega-3 fatty acids from wild-caught fish or algae oil to minimize platelet aggregation hazards.")
+if "Non-Alcoholic Fatty Liver Disease" in comorbidities:
+    dietary_matrix.append("• **Hepatocyte Repair Diet Plan**: Restrict high-fructose corn syrups and processed simple sugars entirely to prevent worsening hepatic steatosis. Mandate antioxidant choline-dense cruciferous vegetables (broccoli, Brussels sprouts) to assist compromised CYP microsomal enzyme synthesis.")
+if calculated_crcl < 45:
+    dietary_matrix.append(f"• **Renal Protection Protocol**: Limit protein volume to 0.8g/kg of target weight. Limit total sodium threshold to <1800mg daily. Ensure precise calculated daily fluid limitation of precisely **{fluid_target} Litres**.")
 else:
-    suggested_regimen = "Maintain Standard Maintenance"
-    regimen_timeline = "Target active metabolic window met successfully. Continue standard adjuvant 5-year treatment window tracking."
-    guideline_source = "CPIC / NCCN Standard Adjuvant Protocols"
-    dose_color = "#10b981"
-
-st.write("---")
-st.header("🤖 RWE Systems Pharmacology Translation Engine (Live Output)")
-
-st.error(f"🎯 ALGORITHMIC DOSING DECISION MATRIX: {suggested_regimen}")
-st.warning(f"⏳ TIMELINE STRATEGY: {regimen_timeline} | Compliant with: {guideline_source}")
-
-out_col1, out_col2 = st.columns(2)
-
-with out_col1:
-    st.markdown("### 📈 Pharmacokinetic Core Metrics")
-    st.metric(label="Systemic Plasma Endoxifen Concentration", value=f"{calculated_endoxifen} ng/mL", delta="Target Efficacy Threshold &ge;15.0 ng/mL")
-    st.metric(label="Calculated Creatinine Clearance (Cockcroft-Gault)", value=f"{cr_cl} mL/min", delta=f"Extrapolated Half-life (t1/2): ~{t_half} hours")
-    st.metric(label="Calculated 5-Year Overall Survival Probability", value=f"{survival_percentage}%")
-
-with out_col2:
-    st.markdown("### 🫁 Multi-Organ Toxicological Mechanism & Specific Diets")
-    
-    st.markdown("<div class='swiss-report-frame' style='margin-top:0; padding:1.2rem;'>", unsafe_allow_html=True)
-    if hys_law_active:
-        st.markdown("<span style='color:#ef4444; font-weight:700; font-size:14px;'>🚨 FULMINANT HY'S LAW SIGNALLING ACTIVE:</span>", unsafe_allow_html=True)
-        st.write("• **PV Assessment:** Transaminases >3x ULN combined with Total Bilirubin >2x ULN mimics the classic FDA Hy's Law matrix. **Toxicity Outcome:** High threat of imminent acute liver necrosis (10-50% mortality risk). **Dietary Solution:** Immediate transition to parenteral fluid restriction loops; hold all oral chemical burdens.")
-    elif "Fatty Liver (NAFLD)" in prior_morbidity:
