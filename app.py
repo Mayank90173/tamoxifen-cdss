@@ -5,7 +5,6 @@ import io
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
 
 # 1. Premium Institutional Page & Swiss UI Setup
 st.set_page_config(
@@ -14,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Premium Cybernetic Medical HUD Aesthetic
+# Core Cybernetic HUD Styling Layout Matrix
 st.markdown("""
     <style>
     .stApp { background-color: #060913; color: #f8fafc; }
@@ -47,7 +46,7 @@ st.markdown("""
 if 'patient_ledger' not in st.session_state:
     st.session_state.patient_ledger = []
 
-# Main Layout Segmentation
+# Main Layout Input Fields Setup
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -141,7 +140,7 @@ if hys_law_triggered: base_flux *= 0.35
 
 calculated_endoxifen = round(base_flux * compliance * (1 - np.exp(-ke * days_on_therapy)), 2)
 
-# Native Streamlit Chart Data Builder Setup
+# Native Uncrashable Streamlit Chart Data Builder Setup
 time_axis = list(range(1, 31))
 kinetics_curve = [round(base_flux * compliance * (1 - np.exp(-ke * t)), 2) for t in time_axis]
 chart_dataframe = pd.DataFrame({
