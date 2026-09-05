@@ -10,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Base Cybernetic HUD Styling Layout Matrix
+# Premium Cybernetic Medical HUD Aesthetic
 st.markdown("""
     <style>
     .stApp { background-color: #060913; color: #f8fafc; }
@@ -32,8 +32,8 @@ st.markdown("""
 
 st.markdown("""
     <div class="swiss-premium-banner">
-        <span class="system-status">✦ SWISS CLINICAL PHARMACOGENOMICS COMMAND UNIT // ADVANCED DEEP PGX EDITION</span>
-        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 TRANSLATIONAL SYSTEMS PHARMACOLOGY DASHBOARD</h1>
+        <span class="system-status">✦ SWISS CLINICAL PHARMACOGENOMICS MATRIX // EVIDENCE-BASED BENCHMARK</span>
+        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 TRANSLATIONAL SYSTEMS PHARMACOLOGY COMMAND UNIT</h1>
         <p style='color: #94a3b8 !important; margin: 8px 0 0 0; font-size:14px; font-family: monospace;'>
             H-Informatics Engine • Lead Portfolio Architecture: Dr. Mayank Virmani | PharmD & PV Scientist
         </p>
@@ -53,9 +53,9 @@ with col1:
     weight = st.slider("Total Mass Target (kg)", 35, 150, 82)
     gender = st.radio("Biological Configuration", ["Female", "Male"], horizontal=True)
     
-    cyp2d6_profile = st.selectbox("CYP2D6 Genomic Architecture (CPIC Tier-1)", [
+    cyp2d6_profile = st.selectbox("CYP2D6 Genomic Architecture (CPIC Focus)", [
         "*1xN/*1 (Ultra-rapid Metabolizer - Functional Activity Score: >2.0)",
-        "*1/*1 (Normal Metabolizer - Default)", 
+        "*1/*1 (Normal Metabolizer - Default Baseline)", 
         "*1/*10 (Intermediate Metabolizer - Impaired Flux Spectrum)", 
         "*4/*4 (Null Allele - Poor Metabolizer - Total Phenoconversion)"
     ])
@@ -65,12 +65,12 @@ with col2:
     st.markdown("### 🧬 2. Extended Deep PGx Secondary Axis")
     cyp2c9_c19_profile = st.selectbox("CYP2C9 / CYP2C19 Parallel Shunt Velocity", [
         "Wild-Type / Extensive Turnover (Normal Baseline)",
-        "CYP2C19*2/*2 Poor Metabolizer (Impaired 4-Hydroxy-Tamoxifen Intermediate Conversion)",
+        "CYP2C19*2/*2 Poor Metabolizer (Impaired 4-Hydroxy Intermediate Conversion)",
         "CYP2C9*3 Carrier (Altered Alternate Metabolite Shunting Clearance)"
     ])
     sult1a1_cnv = st.selectbox("SULT1A1 Copy Number Variations (Phase II Conjugation)", [
         "Normal Copy Number (2 Copies - Standard Active Sulfation)",
-        "SULT1A1 Deletion Variant (Low Active Endoxifen-Sulfonate Bioavailability)",
+        "SULT1A1 Deletion Variant (Low Active Endoxifen Bioavailability)",
         "SULT1A1 Amplification Variant (>3 Copies - Accelerated Clearance Vector)"
     ])
     
@@ -137,31 +137,42 @@ calculated_endoxifen = round(base_flux * compliance * (1 - np.exp(-ke * days_on_
 time_axis = list(range(1, 31))
 kinetics_curve = [round(base_flux * compliance * (1 - np.exp(-ke * t)), 2) for t in time_axis]
 
-# Secure Core Output Frame Compilation
 chart_dataframe = pd.DataFrame({
     'Concentration (ng/mL)': kinetics_curve,
     'Therapeutic Floor Limit': [5.97] * 30
 }, index=time_axis)
 
-# --- CLINICAL PROTOCOL JUDGEMENT LOGIC ---
+# --- 🎯 CLINICAL GUIDELINE AND CRITICAL DOSE ADJUSTMENT ADVICE ENGINE ---
+evidence_source = "CPIC Guidelines (2023 Update) & FDA Pharmacovigilance Mandates"
+
 if "Negative Status" in er_status:
     clinical_directive = "TERMINATE ENDOCRINE SYSTEM PROTOCOL IMMEDIATELY"
-    directive_notes = "Target ERα receptor architecture is entirely absent. Tamoxifen lacks effectiveness."
+    dose_advice = "Tamoxifen therapy possesses zero utility due to lack of target receptor binding architecture."
+    drug_alternative = "Switch patient immediately to systemic standard chemotherapy protocols or targeted biological agents."
     status_alert = st.error
 elif hys_law_triggered or "Deep Vein Thrombosis (DVT Cluster Risk)" in comorbidities:
     clinical_directive = "CRITICAL MEDICAL SUSPENSION ORDERED"
-    directive_notes = "🚨 IMMEDIATE SUSPENSION. Active Hy's Law indicators or profound peripheral thromboembolic parameters met."
+    dose_advice = "Hold all active endocrine dosing cycles to eliminate life-threatening hazards."
+    drug_alternative = "🚨 EMERGENCY STAT. Severe Drug-Induced Liver Injury (Hy's Law) or acute DVT risk verified. Switch to non-estrogenic therapeutic tracks if stable."
+    status_alert = st.error
+elif "*4/*4" in cyp2d6_profile or "Paroxetine" in cyp2d6_inhibitor:
+    # Genetic non-responders or phenoconversion states where raising Tamoxifen dose fails completely
+    clinical_directive = "PATHWAY FAILURE DETECTED: PERMANENT DRUG SWITCH REQUIRED"
+    dose_advice = "Dose escalation to 40mg daily will completely fail due to functional absence of the CYP2D6 pathway."
+    drug_alternative = "Discontinue Tamoxifen. Switch patient instantly to Aromatase Inhibitors: Anastrozole (1mg daily) or Letrozole (2.5mg daily). Add GnRH agonist if premenopausal."
     status_alert = st.error
 elif calculated_endoxifen < 5.97:
-    clinical_directive = "SUB-THERAPEUTIC PHARMACOKINETIC SPECTRUM DETECTED"
-    directive_notes = f"Current concentration profile ({calculated_endoxifen} ng/mL) scales below the targeted 5.97 ng/mL threshold."
+    clinical_directive = "SUB-THERAPEUTIC PHARMACOKINETIC WINDOW DETECTED"
+    dose_advice = "Increase standard Tamoxifen maintenance dose from 20mg to 40mg daily under precise monitoring."
+    drug_alternative = "Address compliance issues or evaluate shunting inhibitors. Consider alternative Aromatase Inhibitor switch if levels remain low after 14 days."
     status_alert = st.warning
 else:
     clinical_directive = "OPTIMAL THERAPEUTIC MAINTENANCE STABILIZED"
-    directive_notes = f"Steady-state target successfully achieved ({calculated_endoxifen} ng/mL). Therapeutic window optimized."
+    dose_advice = "Maintain standard Tamoxifen protocol at 20mg daily."
+    drug_alternative = "No switch necessary. Systemic active metabolite levels are safe for long-term breast cancer recurrence prevention."
     status_alert = st.success
 
-# --- INTERACTIVE METRIC DISPATCH ---
+# --- 🎯 INTERACTIVE EVALUATION HUD PANEL ---
 st.header("📊 4. Real-Time Clinical Evaluation Panel")
 m1, m2, m3 = st.columns(3)
 m1.metric("Calculated Renal CrCl", f"{calculated_crcl} mL/min")
@@ -169,20 +180,10 @@ m2.metric("Steady-State Endoxifen", f"{calculated_endoxifen} ng/mL")
 m3.metric("Minimum Therapeutic Cutoff", "5.97 ng/mL")
 
 st.markdown("#### Operational Directive Command")
-status_alert(f"**{clinical_directive}** — {directive_notes}")
+status_alert(f"**{clinical_directive}**")
 
-# --- LINE GRAPH MATRIX ---
-st.header("📈 5. Projected 30-Day Pharmacokinetic (PK) Accumulation Curve")
-st.line_chart(chart_dataframe, height=300, use_container_width=True)
+# Display Advanced Clinical Guidelines Outputs
+st.info(f"📚 **Clinical Guideline Source Matrix:** {evidence_source}")
 
-# --- 🚨 FIXED CRASH-PROOF SYSTEMATIC CLINICAL REPORT SECTION 🚨 ---
-st.header("📑 6. Systematic Deep PGx Translation Report")
-with st.expander("Expand Advanced Medical Evaluation Dossier", expanded=True):
-    st.subheader("🔬 Deep Genomic Translational Assessment")
-    
-    st.markdown(f"**Patient Hash Trace:** {pt_id}")
-    st.write(f"**Biotransformation Array:** Patient presents with a primary genotype status of {cyp2d6_profile}. Kinetic shunts are modified by parallel metabolic lanes ({cyp2c9_c19_profile}) and Phase II sulfation pathways ({sult1a1_cnv}). After cross-referencing active drug interactions ({cyp2d6_inhibitor}), the systemic bioavailable turnover yields an active ceiling profile of **{calculated_endoxifen} ng/mL**.")
-    
-    st.write(f"**End-Organ Health Profiling:** Clearance capacity reports a calculated filtration index of {calculated_crcl} mL/min. Cumulative transaminase liver loading yields AST: {serum_ast} U/L and ALT: {serum_alt} U/L. Based on active structural comorbidities ({', '.join(comorbidities) if comorbidities else 'None Linked'}), the system verdict outputs: **{clinical_directive}**.")
-
-# --- 🥗 PATIENT TAILORED NUTRITIONAL BLUEPRINT ---
+with st.expander("🔬 View Automated Dose Adjustment & Alternative Drug Recommendations", expanded=True):
+    st.markdown(f"**Recommended Dose Strategy:** {dose_advice}")
