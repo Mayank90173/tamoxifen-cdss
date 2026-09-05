@@ -175,13 +175,14 @@ status_alert(f"**{clinical_directive}** — {directive_notes}")
 st.header("📈 5. Projected 30-Day Pharmacokinetic (PK) Accumulation Curve")
 st.line_chart(chart_dataframe, height=300, use_container_width=True)
 
-# --- DYNAMIC CLINICAL ASSESSMENT PARAGRAPH ---
+# --- 🚨 FIXED CRASH-PROOF SYSTEMATIC CLINICAL REPORT SECTION 🚨 ---
 st.header("📑 6. Systematic Deep PGx Translation Report")
-st.markdown(f"""
-    <div class="swiss-card" style="background-color: #0d1527; border-left: 5px solid #38bdf8; margin-bottom: 2rem;">
-        <h4 style="color:#38bdf8; margin-top:0; font-weight:700;">🔬 DEEP GENOMIC TRANSLATIONAL PHARMACOLOGY DISPATCH</h4>
-        <p style="font-size:14px; line-height:1.6; color:#e2e8f0; margin-bottom:12px;">
-            <b>Biotransformation Analysis:</b> Patient <b>{pt_id}</b> has been evaluated across an expanded pharmacogenomics network. Primary activation velocity is controlled by a <b>{cyp2d6_profile}</b> background, with active secondary phase I pathways shunted by <b>{cyp2c9_c19_profile}</b> configurations and phase II active conjugation modulated via <b>{sult1a1_cnv}</b> vectors. 
-            Accounting for core xenobiotic blocks (<b>{cyp2d6_inhibitor}</b>), the bioavailable concentration converges to <b>{calculated_endoxifen} ng/mL</b>.
-        </p>
-        <p style="font-size:14px; line-height:1.6; color:#e2e8f0; margin-bottom:0;">
+with st.expander("Expand Advanced Medical Evaluation Dossier", expanded=True):
+    st.subheader("🔬 Deep Genomic Translational Assessment")
+    
+    st.markdown(f"**Patient Hash Trace:** {pt_id}")
+    st.write(f"**Biotransformation Array:** Patient presents with a primary genotype status of {cyp2d6_profile}. Kinetic shunts are modified by parallel metabolic lanes ({cyp2c9_c19_profile}) and Phase II sulfation pathways ({sult1a1_cnv}). After cross-referencing active drug interactions ({cyp2d6_inhibitor}), the systemic bioavailable turnover yields an active ceiling profile of **{calculated_endoxifen} ng/mL**.")
+    
+    st.write(f"**End-Organ Health Profiling:** Clearance capacity reports a calculated filtration index of {calculated_crcl} mL/min. Cumulative transaminase liver loading yields AST: {serum_ast} U/L and ALT: {serum_alt} U/L. Based on active structural comorbidities ({', '.join(comorbidities) if comorbidities else 'None Linked'}), the system verdict outputs: **{clinical_directive}**.")
+
+# --- 🥗 PATIENT TAILORED NUTRITIONAL BLUEPRINT ---
