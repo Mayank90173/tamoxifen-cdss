@@ -186,3 +186,5 @@ else:
 st.markdown(f"""
     <div class="swiss-card">
         <h3 style='color: #ffffff; margin-top:0;'>📊 INTERACTIVE MEDICAL DISPATCH PANEL</h3>
+
+        
