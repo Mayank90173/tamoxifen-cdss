@@ -2,6 +2,8 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import json
+import io
+import plotly.graph_objects as go
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -125,6 +127,10 @@ with col3:
 gender_multiplier = 0.85 if "Female" in gender else 1.0
 calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_multiplier, 1)
 
+# Dynamic Absorption Rate constant (Ka) and Elimination constant (Ke) adjustments
+ka = 0.28
+ke = 0.028 if calculated_crcl >= 60 else 0.045 if calculated_crcl >= 30 else 0.065
+
 if "*4/*4" in cyp2d6_profile: base_flux = 7.2
 elif "*1/*10" in cyp2d6_profile: base_flux = 13.8
 elif "*1/*1" in cyp2d6_profile: base_flux = 24.5
@@ -142,7 +148,11 @@ if "Non-Alcoholic Fatty Liver Disease" in comorbidities: base_flux *= 0.80
 hys_law_triggered = (serum_ast > 120 or serum_alt > 120) and (total_bilirubin > 2.0)
 if hys_law_triggered: base_flux *= 0.35
 
-calculated_endoxifen = round(base_flux * compliance * (1 - np.exp(-0.028 * days_on_therapy)), 2)
+calculated_endoxifen = round(base_flux * compliance * (1 - np.exp(-ke * days_on_therapy)), 2)
+
+# --- Dynamic 30-Day Simulation Array ---
+time_axis = np.arange(1, 31, 1)
+kinetics_curve = base_flux * compliance * (1 - np.exp(-ke * time_axis))
 
 # --- DYNAMIC DIETARY ENGINE ---
 dietary_matrix = []
@@ -173,14 +183,3 @@ elif hys_law_triggered or "Deep Vein Thrombosis (DVT Cluster Risk)" in comorbidi
     ui_status_color = "#ef4444"
 elif calculated_endoxifen < 5.97:
     clinical_directive = "SUB-THERAPEUTIC PHARMACOKINETIC SPECTRUM DETECTED"
-    directive_notes = f"Current concentration profile ({calculated_endoxifen} ng/mL) falls below the critical therapeutic benchmark of 5.97 ng/mL."
-    ui_status_color = "#f59e0b"
-else:
-    clinical_directive = "OPTIMAL STABLE MAINTAINED MAINTENANCE"
-    directive_notes = f"Steady-state active concentration target successfully stabilized ({calculated_endoxifen} ng/mL)."
-    ui_status_color = "#10b981"
-
-# --- FIXED REPORTLAB PDF GENERATION ENGINE ---
-def generate_pdf_payload():
-    import io
-    pdf_buffer = io.BytesIO()
