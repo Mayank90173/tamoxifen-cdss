@@ -126,9 +126,6 @@ with col3:
 # --- PHARMACOLOGY KINETIC ENGINE ---
 gender_multiplier = 0.85 if "Female" in gender else 1.0
 calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_multiplier, 1)
-
-# Dynamic Absorption Rate constant (Ka) and Elimination constant (Ke) adjustments
-ka = 0.28
 ke = 0.028 if calculated_crcl >= 60 else 0.045 if calculated_crcl >= 30 else 0.065
 
 if "*4/*4" in cyp2d6_profile: base_flux = 7.2
@@ -150,25 +147,22 @@ if hys_law_triggered: base_flux *= 0.35
 
 calculated_endoxifen = round(base_flux * compliance * (1 - np.exp(-ke * days_on_therapy)), 2)
 
-# --- Dynamic 30-Day Simulation Array ---
-time_axis = np.arange(1, 31, 1)
-kinetics_curve = base_flux * compliance * (1 - np.exp(-ke * time_axis))
+# Dynamic 30-Day Simulation Array Fix
+time_axis = list(range(1, 31))
+kinetics_curve = [round(base_flux * compliance * (1 - np.exp(-ke * t)), 2) for t in time_axis]
 
 # --- DYNAMIC DIETARY ENGINE ---
 dietary_matrix = []
 fluid_target = max(1.5, round((weight * 30) / 1000, 1))
 
 if "Deep Vein Thrombosis" in comorbidities:
-    dietary_matrix.append("• **Vascular Integrity Focus**: Absolute exclusion of high-dose isolated Vitamin K supplements; strictly regulate uniform intake of leafy greens.")
+    dietary_matrix.append("• **Vascular Integrity Focus**: Absolute exclusion of high-dose Vitamin K supplements; regulate leafy greens.")
 if "Non-Alcoholic Fatty Liver Disease" in comorbidities:
-    dietary_matrix.append("• **Hepatocyte Repair Diet Plan**: Restrict high-fructose corn syrups and processed simple sugars entirely to prevent worsening hepatic steatosis.")
+    dietary_matrix.append("• **Hepatocyte Repair Diet Plan**: Restrict high-fructose corn syrups to protect enzyme functions.")
 if calculated_crcl < 45:
-    dietary_matrix.append(f"• **Renal Protection Protocol**: Limit protein volume to 0.8g/kg. Ensure precise calculated daily fluid limit of **{fluid_target} Litres**.")
+    dietary_matrix.append(f"• **Renal Protection Protocol**: Limit protein to 0.8g/kg. Fluid threshold set to **{fluid_target} Litres**.")
 else:
-    dietary_matrix.append(f"• **Standard Clearance Hydration Plan**: Maintain a systemic fluid loading target of **{fluid_target} Litres** daily.")
-
-if not dietary_matrix:
-    dietary_matrix.append("• **Metabolic Maintenance Optimization**: Balanced Mediterranean profile containing cold-pressed olive oils.")
+    dietary_matrix.append(f"• **Standard Clearance Hydration Plan**: Maintain daily hydration levels of **{fluid_target} Litres**.")
 
 final_diet_compiled = "\n\n".join(dietary_matrix)
 
@@ -179,7 +173,15 @@ if "Negative Status" in er_status:
     ui_status_color = "#ef4444"
 elif hys_law_triggered or "Deep Vein Thrombosis (DVT Cluster Risk)" in comorbidities:
     clinical_directive = "CRITICAL MEDICAL SUSPENSION ORDERED"
-    directive_notes = "🚨 IMMEDIATE SUSPENSION WARRANTED. Either active Hy's Law drug-induced liver injury has been identified or a critical DVT threat profile exists."
+    directive_notes = "🚨 IMMEDIATE SUSPENSION. Active Hy's Law indicators or profound peripheral thromboembolic parameters met."
     ui_status_color = "#ef4444"
 elif calculated_endoxifen < 5.97:
     clinical_directive = "SUB-THERAPEUTIC PHARMACOKINETIC SPECTRUM DETECTED"
+    directive_notes = f"Current active metabolite concentration ({calculated_endoxifen} ng/mL) scales below the targeted 5.97 ng/mL therapeutic index."
+    ui_status_color = "#f59e0b"
+else:
+    clinical_directive = "OPTIMAL STABLE MAINTAINED MAINTENANCE"
+    directive_notes = f"Steady-state target successfully achieved ({calculated_endoxifen} ng/mL). Therapeutic window optimized."
+    ui_status_color = "#10b981"
+
+# --- 📈 PHARMACOKINETIC SIMULATION BLOCK ---
