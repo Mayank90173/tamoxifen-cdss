@@ -105,6 +105,7 @@ with col2:
 with col3:
     st.markdown("### 📊 3. End-Organ Load & Morbidities")
     creatinine = st.number_input("Serum Creatinine Clear Marker (mg/dL)", min_value=0.2, max_value=12.0, value=1.40, step=0.05)
+    st.write(f"AST/ALT Matrix Input Frames Triggered below:")
     serum_ast = st.number_input("Hepatic Transaminase AST (U/L)", min_value=5, max_value=3000, value=145, step=5)
     serum_alt = st.number_input("Hepatic Transaminase ALT (U/L)", min_value=5, max_value=3000, value=165, step=5)
     total_bilirubin = st.number_input("Total Bilirubin Mass Fraction (mg/dL)", min_value=0.1, max_value=20.0, value=2.6, step=0.1)
@@ -124,17 +125,20 @@ gender_multiplier = 0.85 if gender == "Female" else 1.0
 calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_multiplier, 1)
 ke = 0.028 if calculated_crcl >= 60 else 0.045 if calculated_crcl >= 30 else 0.065
 
+# 1. Primary CYP2D6 Pathway Flux Calculation
 if "*4/*4" in cyp2d6_profile: base_flux = 7.2
 elif "*1/*10" in cyp2d6_profile: base_flux = 13.8
 elif "*1/*1" in cyp2d6_profile: base_flux = 24.5
 else: base_flux = 34.0  
 
+# 2. Deep PGx Phase I Parallel Shunt & Phase II Sulfation Modifications
 if "CYP2C19*2/*2" in cyp2c9_c19_profile: base_flux *= 0.82 
 elif "CYP2C9*3" in cyp2c9_c19_profile: base_flux *= 0.90
 
 if "SULT1A1 Deletion" in sult1a1_cnv: base_flux *= 0.75 
 elif "SULT1A1 Amplification" in sult1a1_cnv: base_flux *= 1.15 
 
+# 3. Xenobiotic Interactions DDI Multipliers
 if "Paroxetine" in cyp2d6_inhibitor: base_flux *= 0.15 
 elif "Bupropion" in cyp2d6_inhibitor: base_flux *= 0.30
 elif "Sertraline" in cyp2d6_inhibitor: base_flux *= 0.65
@@ -149,7 +153,7 @@ if hys_law_triggered: base_flux *= 0.35
 
 calculated_endoxifen = round(base_flux * compliance * (1 - np.exp(-ke * days_on_therapy)), 2)
 
-# Uncrashable Native Dataframe Assembly for st.line_chart Execution
+# Dataframe Assembly for st.line_chart Execution
 time_axis = list(range(1, 31))
 kinetics_curve = [round(base_flux * compliance * (1 - np.exp(-ke * t)), 2) for t in time_axis]
 chart_dataframe = pd.DataFrame({
@@ -185,7 +189,7 @@ m3.metric("Minimum Therapeutic Cutoff", "5.97 ng/mL")
 st.markdown("#### Operational Directive Command")
 status_alert(f"**{clinical_directive}** — {directive_notes}")
 
-# --- 📈 NATIVE UNCRASHABLE SIMULATION ACCUMULATION MAP ---
+# --- 📈 NATIVE SIMULATION ACCUMULATION MAP ---
 st.header("📈 5. Projected 30-Day Pharmacokinetic (PK) Accumulation Curve")
 st.line_chart(chart_dataframe, height=300, use_container_width=True)
 
@@ -195,4 +199,3 @@ st.markdown(f"""
     <div class="swiss-card" style="background-color: #0d1527; border-left: 5px solid #38bdf8; margin-bottom: 2rem;">
         <h4 style="color:#38bdf8; margin-top:0; font-weight:700;">🔬 DEEP GENOMIC TRANSLATIONAL PHARMACOLOGY DISPATCH</h4>
         <p style="font-size:14px; line-height:1.6; color:#e2e8f0; margin-bottom:12px;">
-            <b>Biotransformation Analysis:</b> Patient <b>{pt_id}</b> has been evaluated across an expanded pharmacogenomics network. Primary activation velocity is controlled by a <b>{cyp2d6_profile}</b> background, with active secondary phase I pathways shunted by <b>{cyp2c9_c19_profile}</b> configurations and phase II active conjugation modulated via <b>{sult1a1_cnv}</b> vectors. 
