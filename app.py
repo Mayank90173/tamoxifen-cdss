@@ -69,7 +69,6 @@ with col1:
 
 with col2:
     st.markdown("### 🧬 2. Extended Deep PGx Secondary Axis")
-    # New deep pharmacogenomics variables disrupting endoxifen pathways
     cyp2c9_c19_profile = st.selectbox("CYP2C9 / CYP2C19 Parallel Shunt Velocity", [
         "Wild-Type / Extensive Turnover (Normal Baseline)",
         "CYP2C19*2/*2 Poor Metabolizer (Impaired 4-Hydroxy-Tamoxifen Intermediate Conversion)",
@@ -126,8 +125,8 @@ else: base_flux = 34.0
 if "CYP2C19*2/*2" in cyp2c9_c19_profile: base_flux *= 0.82 
 elif "CYP2C9*3" in cyp2c9_c19_profile: base_flux *= 0.90
 
-if "SULT1A1 Deletion" in sult1a1_cnv: base_flux *= 0.75 # Lower therapeutic endoxifen efficiency
-elif "SULT1A1 Amplification" in sult1a1_cnv: base_flux *= 1.15 # Hyper-metabolic activation shift
+if "SULT1A1 Deletion" in sult1a1_cnv: base_flux *= 0.75 
+elif "SULT1A1 Amplification" in sult1a1_cnv: base_flux *= 1.15 
 
 # 3. Xenobiotic Interactions DDI Multipliers
 if "Paroxetine" in cyp2d6_inhibitor: base_flux *= 0.15 
@@ -178,7 +177,8 @@ status_alert(f"**{clinical_directive}** — {directive_notes}")
 st.header("📈 5. Projected 30-Day Pharmacokinetic (PK) Accumulation Curve")
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=time_axis, y=kinetics_curve, mode='lines+markers', name='Endoxifen Level Curve', line=dict(color='#10b981', width=3)))
-fig.add_trace(go.Scatter(x=[1, 30], y=[5.97, 5.97], mode='lines', name='Therapeutic Target Floor', line=dict(color='#ef4444', dash='dash')))
+# Fixed: empty tracking arrays mapped properly to a clean day-based list range
+fig.add_trace(go.Scatter(x=time_axis, y=[5.97]*30, mode='lines', name='Therapeutic Target Floor', line=dict(color='#ef4444', dash='dash')))
 fig.update_layout(xaxis_title="Days Since Dosing Cycle Initialization", yaxis_title="Active Plasma Level (ng/mL)", height=340, margin=dict(l=20, r=20, t=20, b=20))
 st.plotly_chart(fig, use_container_width=True)
 
@@ -187,3 +187,4 @@ st.header("📑 6. Systematic Deep PGx Translation Report")
 st.markdown(f"""
     <div class="swiss-card" style="background-color: #0d1527; border-left: 5px solid #38bdf8; margin-bottom: 2rem;">
         <h4 style="color:#38bdf8; margin-top:0; font-weight:700;">🔬 DEEP GENOMIC TRANSLATIONAL PHARMACOLOGY DISPATCH</h4>
+        <p style="font-size:14px; line-height:1.6; color:#e2e8f0; margin-bottom:12px;">
