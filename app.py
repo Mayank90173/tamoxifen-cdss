@@ -102,10 +102,10 @@ with col3:
     total_bilirubin = st.number_input("Total Bilirubin Mass Fraction (mg/dL)", min_value=0.1, max_value=20.0, value=2.60, step=0.1)
     
     comorbidities = st.multiselect("Active Pathological Overlays", [
-        "Deep Vein Thrombosis (DVT Cluster Risk)",
-        "Endometrial Hyperplasia Hyper-proliferation",
+        "Deep Vein Thrombosis (DVT Risk)",
+        "Endometrial Hyperplasia",
         "Non-Alcoholic Fatty Liver Disease (NAFLD)",
-        "Severe Retinopathy & Macular Degradation"
+        "Severe Retinopathy"
     ], default=["Non-Alcoholic Fatty Liver Disease (NAFLD)"])
     
     compliance = st.slider("Adherence Control (MEMS Smart-Cap %)", 10, 100, 85) / 100.0
@@ -165,7 +165,7 @@ if "Negative Status" in er_status:
     drug_alternative = "Discontinue anti-estrogens. Evaluate alternative cytotoxic chemotherapy regimens or appropriate monoclonal antibody configurations."
     ui_status_color = "#ef4444"
     status_alert = st.error
-elif hys_law_triggered or "Deep Vein Thrombosis (DVT Cluster Risk)" in comorbidities:
+elif hys_law_triggered or "Deep Vein Thrombosis (DVT Risk)" in comorbidities:
     clinical_directive = "CRITICAL DIRECTIVE: MANDATORY MEDICAL SUSPENSION ADVISED"
     dose_advice = "Hold all active endocrine dosing vectors immediately to mitigate catastrophic safety events."
     drug_alternative = "🚨 DILI/THROMBOSIS WARNING: Active Hy's Law parameters or extreme peripheral thromboembolic risk verified. Switch to alternative oncology maintenance lines once micro-structural indices stabilize."
