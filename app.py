@@ -116,26 +116,25 @@ gender_multiplier = 0.85 if gender == "Female" else 1.0
 calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_multiplier, 1)
 ke = 0.028 if calculated_crcl >= 60 else 0.045 if calculated_crcl >= 30 else 0.065
 
-# 1. Primary CYP2D6 Phase I Pathway Flux Calculations
+# 1. Primary CYP2D6 Pathway Flux Calculations
 if "*4/*4" in cyp2d6_profile: base_flux = 7.2
 elif "*1/*10" in cyp2d6_profile: base_flux = 13.8
 elif "*1/*1" in cyp2d6_profile: base_flux = 24.5
 else: base_flux = 34.0  
 
-# 2. Deep Secondary Phase I & Phase II Shunt Modifications
+# 2. Deep PGx Modifications
 if "CYP2C19*2/*2" in cyp2c9_c19_profile: base_flux *= 0.82 
 elif "CYP2C9*3" in cyp2c9_c19_profile: base_flux *= 0.90
 if "SULT1A1 Deletion" in sult1a1_cnv: base_flux *= 0.75 
 elif "SULT1A1 Amplification" in sult1a1_cnv: base_flux *= 1.15 
 
-# 3. Xenobiotic Drug Interferences Cross-Multiplication (DDI)
+# 3. DDI Interferences
 if "Paroxetine" in cyp2d6_inhibitor: base_flux *= 0.15 
 elif "Bupropion" in cyp2d6_inhibitor: base_flux *= 0.30
 elif "Sertraline" in cyp2d6_inhibitor: base_flux *= 0.65
 if "Rifampicin" in cyp3a4_modulator: base_flux *= 0.45 
 elif "Ketoconazole" in cyp3a4_modulator: base_flux *= 1.25 
 
-# 4. Comorbidity Hepatic Loading Constraints
 if "Non-Alcoholic Fatty Liver Disease" in comorbidities: base_flux *= 0.80
 
 hys_law_triggered = (serum_ast > 120 or serum_alt > 120) and (total_bilirubin > 2.0)
@@ -176,3 +175,4 @@ elif calculated_endoxifen < 5.97:
 else:
     clinical_directive = "OPERATIONAL DIRECTIVE: OPTIMAL THERAPEUTIC MAINTENANCE STABILIZED"
     dose_advice = "Maintain standard Tamoxifen protocol at 20mg daily."
+    drug_alternative = "No therapeutic shunting required. Target steady-state concentration is optimal for long-term tumor recurrence prevention."
