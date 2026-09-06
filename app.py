@@ -115,7 +115,7 @@ with col3:
     compliance = st.slider("Adherence Control (MEMS Smart-Cap %)", 10, 100, 85) / 100.0
     days_on_therapy = st.number_input("Duration Cycle Status (Days Active)", min_value=1, max_value=730, value=24)
 
-# --- ADVANCED PHARMACOLOGICAL METABOLIC DEEP KINETIC ENGINE ---
+# --- PHARMACOLOGY DEEP DEEP METABOLIC KINETIC ENGINE ---
 gender_multiplier = 0.85 if gender == "Female" else 1.0
 calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_multiplier, 1)
 ke = 0.028 if calculated_crcl >= 60 else 0.045 if calculated_crcl >= 30 else 0.065
@@ -156,28 +156,25 @@ chart_dataframe = pd.DataFrame({
 # --- CLINICAL PROTOCOL JUDGEMENT LOGIC (HCP GRADE) ---
 evidence_source = "CPIC Guidelines (2023 Update) & FDA Oncology Pharmacovigilance Mandates"
 
+# 🚨 FIX: Explicit initialization of color tracking identifiers across all logical branches
 if "Negative Status" in er_status:
     clinical_directive = "CRITICAL DIRECTIVE: TERMINATE TAMOXIFEN PROTOCOL IMMEDIATELY"
     dose_advice = "Tamoxifen therapy displays structural futility due to absolute absence of ERα nuclear receptor targets."
     drug_alternative = "Discontinue anti-estrogens. Evaluate alternative cytotoxic chemotherapy regimens or appropriate monoclonal antibody configurations."
-    status_color = "#ef4444"
+    ui_status_color = "#ef4444"
     status_alert = st.error
 elif hys_law_triggered or "Deep Vein Thrombosis (DVT Cluster Risk)" in comorbidities:
     clinical_directive = "CRITICAL DIRECTIVE: MANDATORY MEDICAL SUSPENSION ADVISED"
     dose_advice = "Hold all active endocrine dosing vectors immediately to mitigate catastrophic safety events."
-    drug_alternative = "DILI/THROMBOSIS WARNING: Active Hy's Law parameters or extreme peripheral thromboembolic risk verified. Switch to alternative oncology maintenance lines once micro-structural indices stabilize."
-    status_color = "#ef4444"
+    drug_alternative = "🚨 DILI/THROMBOSIS WARNING: Active Hy's Law parameters or extreme peripheral thromboembolic risk verified. Switch to alternative oncology maintenance lines once micro-structural indices stabilize."
+    ui_status_color = "#ef4444"
     status_alert = st.error
 elif "*4/*4" in cyp2d6_profile or "Paroxetine" in cyp2d6_inhibitor:
     clinical_directive = "CRITICAL DIRECTIVE: ENZYME PATHWAY BLOCKADE - PERMANENT SWITCH REQUIRED"
     dose_advice = "Dose escalation to 40mg daily will fail completely due to structural functional invalidation of the CYP2D6 metabolizing loop."
     drug_alternative = "Switch patient immediately to third-generation Aromatase Inhibitors: Anastrozole (1mg daily) or Letrozole (2.5mg daily). Add ovarian suppression if premenopausal."
-    status_color = "#ef4444"
+    ui_status_color = "#ef4444"
     status_alert = st.error
 elif calculated_endoxifen < 5.97:
     clinical_directive = "OPERATIONAL DIRECTIVE: SUB-THERAPEUTIC PHARMACOKINETIC SPECTRUM DETECTED"
     dose_advice = "Escalate standard Tamoxifen maintenance dose from 20mg to 40mg daily under strict serum level monitoring."
-    drug_alternative = "Address adherence barriers. Evaluate secondary shunts. If active concentration profiles fail to clear target floor within 14 days, initiate Aromatase Inhibitor transition."
-    status_color = "#f59e0b"
-    status_alert = st.warning
-else:
