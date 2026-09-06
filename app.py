@@ -3,6 +3,16 @@ import numpy as np
 import pandas as pd
 import io
 
+# Safe Dependency Loader to avoid runtime script failures on Streamlit Cloud
+try:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    reportlab_available = True
+except ImportError:
+    reportlab_available = False
+
 # 1. Page Configuration & Swiss Base Interface Setup
 st.set_page_config(
     page_title="Zurich Translational Systems Pharmacology Command Center", 
@@ -10,8 +20,41 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.title("🧬 Systems Pharmacology Translational Oncology Platform")
-st.caption("H-Informatics Core Architecture | Lead PV Portfolio: Dr. Mayank Virmani | PharmD & PV Scientist")
+# Custom High-Tech Cybernetic Medical HUD Aesthetic (Pure CSS Standard Formatting)
+st.markdown("""
+    <style>
+    .stApp { background-color: #060913; color: #f8fafc; }
+    h1, h2, h3, h4, p, span, label, div { font-family: 'Inter', system-ui, sans-serif; }
+    
+    .swiss-premium-banner {
+        background: linear-gradient(135deg, #022c22 0%, #0b1329 50%, #1e1b4b 100%);
+        border-radius: 20px; padding: 2.5rem; position: relative; overflow: hidden;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); margin-bottom: 2.5rem;
+    }
+    .system-status { font-size: 11px; font-family: monospace; text-transform: uppercase; letter-spacing: 1px; color: #10b981; font-weight: bold; }
+    .swiss-card {
+        background: rgba(17, 24, 39, 0.7); border-radius: 16px; padding: 2rem;
+        border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 2rem;
+    }
+    .disclaimer-box {
+        background-color: rgba(239, 68, 68, 0.04); border: 1px dashed rgba(239, 68, 68, 0.3);
+        border-radius: 10px; padding: 1.2rem; margin-top: 2rem; font-size: 12px; color: #cbd5e1; line-height: 1.6;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+    <div class="swiss-premium-banner">
+        <div style="padding-left: 0.5rem;">
+            <span class="system-status">✦ CLINICAL TRANSLATIONAL ONCOLOGY HUB // ACADEMIC RESEARCH SIMULATION PARADIGM</span>
+            <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 TRANSLATIONAL SYSTEMS PHARMACOLOGY PLATFORM</h1>
+            <p style='color: #94a3b8 !important; margin: 8px 0 0 0; font-size:14px; font-family: monospace;'>
+                H-Informatics Core Architecture • Lead PV Portfolio: Dr. Mayank Virmani | PharmD & PV Scientist
+            </p>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
 if 'patient_ledger' not in st.session_state:
     st.session_state.patient_ledger = []
@@ -70,9 +113,9 @@ with col3:
     
     comorbidities = st.multiselect("Active Pathological Overlays", [
         "Deep Vein Thrombosis (DVT Risk)",
-        "Endometrial Hyperplasia",
+        "Endometrial Hyperplasia Hyper-proliferation",
         "Non-Alcoholic Fatty Liver Disease (NAFLD)",
-        "Severe Retinopathy"
+        "Severe Retinopathy & Macular Degradation"
     ], default=["Non-Alcoholic Fatty Liver Disease (NAFLD)"])
     
     compliance = st.slider("Adherence Control (MEMS Smart-Cap %)", 10, 100, 85) / 100.0
@@ -111,81 +154,32 @@ calculated_endoxifen = round(base_flux * compliance * (1 - np.exp(-ke * days_on_
 time_axis = list(range(1, 31))
 kinetics_curve = [round(base_flux * compliance * (1 - np.exp(-ke * t)), 2) for t in time_axis]
 
+# Secure Native Chart Builders to avoid canvas failures
 chart_dataframe = pd.DataFrame({
     'Plasma Concentration (ng/mL)': kinetics_curve,
     'CPIC Target Limit Floor': [5.97] * 30
 }, index=time_axis)
 
-# --- CLINICAL PROTOCOL JUDGEMENT LOGIC (HCP GRADE) ---
+# --- CLINICAL PROTOCOL JUDGEMENT LOGIC & REGIMEN STRATEGY (HCP GRADE) ---
 evidence_source = "CPIC Guidelines (2023 Update) & FDA Oncology Pharmacovigilance Mandates"
 
 if "Negative Status" in er_status:
     clinical_directive = "CRITICAL DIRECTIVE: TERMINATE TAMOXIFEN PROTOCOL IMMEDIATELY"
     dose_advice = "Tamoxifen therapy displays structural futility due to absolute absence of ERα nuclear receptor targets."
     drug_alternative = "Discontinue anti-estrogens. Evaluate alternative cytotoxic chemotherapy regimens or appropriate monoclonal antibody configurations."
+    optimum_timing = "Not Applicable (Therapy Defunct)."
+    ui_status_color = "#ef4444"
     status_alert = st.error
 elif hys_law_triggered or "Deep Vein Thrombosis (DVT Risk)" in comorbidities:
     clinical_directive = "CRITICAL DIRECTIVE: MANDATORY MEDICAL SUSPENSION ADVISED"
     dose_advice = "Hold all active endocrine dosing vectors immediately to mitigate catastrophic safety events."
-    drug_alternative = "🚨 DILI/THROMBOSIS WARNING: Active Hy's Law parameters or extreme peripheral thromboembolic risk verified. Switch to alternative oncology maintenance lines once micro-structural indices stabilize."
+    drug_alternative = "🚨 EMERGENCY STAT. Severe Drug-Induced Liver Injury (Hy's Law Protocol) or active acute deep vein thrombosis. Switch to alternate non-estrogenic lines once transaminase levels stabilize."
+    optimum_timing = "Immediate Discontinuation Vector Triggered."
+    ui_status_color = "#ef4444"
     status_alert = st.error
 elif "*4/*4" in cyp2d6_profile or "Paroxetine" in cyp2d6_inhibitor:
-    clinical_directive = "CRITICAL DIRECTIVE: ENZYME PATHWAY BLOCKADE - PERMANENT SWITCH REQUIRED"
-    dose_advice = "Dose escalation to 40mg daily will fail completely due to structural functional invalidation of the CYP2D6 metabolizing loop."
-    drug_alternative = "Switch patient immediately to third-generation Aromatase Inhibitors: Anastrozole (1mg daily) or Letrozole (2.5mg daily). Add ovarian suppression if premenopausal."
-    status_alert = st.error
-elif calculated_endoxifen < 5.97:
-    clinical_directive = "OPERATIONAL DIRECTIVE: SUB-THERAPEUTIC PHARMACOKINETIC SPECTRUM DETECTED"
-    dose_advice = "Escalate standard Tamoxifen maintenance dose from 20mg to 40mg daily under strict serum level monitoring."
-    drug_alternative = "Address adherence barriers. Evaluate secondary shunts. If active concentration profiles fail to clear target floor within 14 days, initiate Aromatase Inhibitor transition."
-    status_alert = st.warning
-else:
-    clinical_directive = "OPERATIONAL DIRECTIVE: OPTIMAL THERAPEUTIC MAINTENANCE STABILIZED"
-    dose_advice = "Maintain standard Tamoxifen protocol at 20mg daily."
-    drug_alternative = "No therapeutic shunting required. Target steady-state concentration is optimal for long-term tumor recurrence prevention."
-    status_alert = st.success
-
-# --- 🎯 INSTANT SCREEN RENDER PARADIGM ---
-st.markdown("---")
-
-# 4. Interactive Live Panel
-st.header("📊 4. Real-Time Clinical Evaluation Panel")
-m1, m2, m3 = st.columns(3)
-m1.metric("Calculated Renal CrCl Index", f"{calculated_crcl} mL/min")
-m2.metric("Steady-State Endoxifen (Css)", f"{calculated_endoxifen} ng/mL")
-m3.metric("Therapeutic Target Floor", "5.97 ng/mL")
-
-st.markdown("#### Operational Directive Command")
-status_alert(f"**{clinical_directive}**")
-st.info(f"📚 **Clinical Evidence Source Matrix:** {evidence_source}")
-
-st.subheader("🔬 View Automated Dose Strategy & Alternative Drug Selections")
-st.write(f"**Recommended Dose Strategy:** {dose_advice}")
-st.write(f"**Alternative Choice Selection:** {drug_alternative}")
-
-# 5. Native Charts Matrix
-st.header("📈 5. Projected 30-Day Pharmacokinetic (PK) Accumulation Curve")
-st.line_chart(chart_dataframe, height=300, use_container_width=True)
-
-# 6. Quantitative Results Tables
-st.header("📊 6. Quantitative Diagnostic Metrics Summary Table")
-results_matrix_data = {
-    "Clinical Variable Model Axis": [
-        "Patient System Unique Hash ID",
-        "Calculated Renal Clearance Rate (CG Vector)",
-        "Primary Genotype Architecture (CYP2D6 Focus)",
-        "Secondary Parallel Turnover Shunt (CYP2C9/19)",
-        "Phase II Active Sulfoconjugation Factor (SULT1A1)",
-        "Computed Steady-State Endoxifen Load",
-        "Target Safety Baseline Condition (Hy's Law Screen)"
-    ],
-    "Captured Value Parameters": [
-        str(pt_id),
-        f"{calculated_crcl} mL/min",
-        str(cyp2d6_profile),
-        str(cyp2c9_c19_profile),
-        str(sult1a1_cnv),
-        f"{calculated_endoxifen} ng/mL (CPIC Cutoff Threshold: 5.97)",
-        "⚠️ HIGH RISK TRIGGERED" if hys_law_triggered else "✓ Negative / Secure Clearance Screen"
-    ]
-}
+    clinical_directive = "CRITICAL DIRECTIVE: ENZYME PATHWAY BLOCKADE - PERMANENT AGENT SWITCH REQUIRED"
+    dose_advice = "Dose escalation of Tamoxifen to 40mg daily will fail completely due to functional absence of the CYP2D6 metabolizing loop (Phenoconversion Matrix)."
+    drug_alternative = "Discontinue Tamoxifen. Switch patient immediately to third-generation Aromatase Inhibitors: Anastrozole 1mg orally once daily (QD) OR Letrozole 2.5mg orally once daily (QD)."
+    optimum_timing = "Administer selected Aromatase Inhibitor consistently in the MORNING (AM) to minimize skeletal-arthralgia side effect profiles."
+    ui_status_color = "#ef4444"
