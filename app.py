@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 
 # 1. Premium Institutional Page & Swiss UI Setup
 st.set_page_config(
-    page_title="Zurich-India Translational Systems Pharmacology Command Center", 
+    page_title="Zurich Translational Systems Pharmacology Command Center", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -21,12 +21,17 @@ st.markdown("""
         background: linear-gradient(135deg, #022c22 0%, #0b1329 50%, #1e1b4b 100%);
         border-radius: 20px; padding: 2.5rem; position: relative; overflow: hidden;
         border: 1px solid rgba(16, 185, 129, 0.2);
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); margin-bottom: 2.5rem;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); margin-bottom: 2.5rem;
     }
     .system-status { font-size: 11px; font-family: monospace; text-transform: uppercase; letter-spacing: 1px; color: #10b981; font-weight: bold; }
     .swiss-card {
         background: rgba(17, 24, 39, 0.7); border-radius: 16px; padding: 2rem;
         border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 2rem;
+    }
+    .brand-logo-hud {
+        position: absolute; left: 2.5rem; top: 2.2rem; width: 50px; height: 50px;
+        background: radial-gradient(circle, #10b981 20%, #3b82f6 80%);
+        border-radius: 35% 65% 60% 40% / 45% 45% 55% 55%; opacity: 0.85;
     }
     .disclaimer-box {
         background-color: rgba(239, 68, 68, 0.05); border: 1px dashed rgba(239, 68, 68, 0.3);
@@ -37,11 +42,14 @@ st.markdown("""
 
 st.markdown("""
     <div class="swiss-premium-banner">
-        <span class="system-status">✦ NATIONAL LEVEL TRANSLATIONAL ONCOLOGY HUB // EVALUATION STREAM PARADIGM</span>
-        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 TRANSLATIONAL SYSTEMS PHARMACOLOGY COMMAND UNIT</h1>
-        <p style='color: #94a3b8 !important; margin: 8px 0 0 0; font-size:14px; font-family: monospace;'>
-            H-Informatics Framework Matrix • Core Architecture Lead: Dr. Mayank Virmani | PharmD & PV Scientist Portfolio
-        </p>
+        <div class="brand-logo-hud"></div>
+        <div style="padding-left: 4.5rem;">
+            <span class="system-status">✦ CLINICAL TRANSLATIONAL ONCOLOGY HUB // NATIONAL PSA PROTOCOL STREAM LEVEL 4</span>
+            <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 TRANSLATIONAL SYSTEMS PHARMACOLOGY PLATFORM</h1>
+            <p style='color: #94a3b8 !important; margin: 8px 0 0 0; font-size:14px; font-family: monospace;'>
+                H-Informatics Core Architecture • Lead PV Portfolio: Dr. Mayank Virmani | PharmD & PV Scientist
+            </p>
+        </div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -59,7 +67,7 @@ with col1:
     gender = st.radio("Biological Configuration", ["Female", "Male"], horizontal=True)
     diet_preference = st.radio("Patient Dietary Vector Configuration", ["Vegetarian Profile", "Non-Vegetarian Profile"], horizontal=True)
     
-    cyp2d6_profile = st.selectbox("CYP2D6 Genomic Architecture (CPIC Focus Axis)", [
+    cyp2d6_profile = st.selectbox("CYP2D6 Genomic Architecture (CPIC Target Axis)", [
         "*1xN/*1 (Ultra-rapid Metabolizer - Functional Activity Score: >2.0)",
         "*1/*1 (Normal Metabolizer - Baseline Metabolic Velocity)", 
         "*1/*10 (Intermediate Metabolizer - Impaired Flux Spectrum)", 
@@ -144,7 +152,7 @@ time_axis = list(range(1, 31))
 kinetics_curve = [round(base_flux * compliance * (1 - np.exp(-ke * t)), 2) for t in time_axis]
 
 # --- CLINICAL PROTOCOL JUDGEMENT LOGIC (HCP GRADE) ---
-evidence_source = "CPIC Guidelines Reference Model & FDA Oncology Pharmacovigilance Protocols"
+evidence_source = "CPIC Guidelines (2023 Update) & FDA Oncology Pharmacovigilance Mandates"
 
 if "Negative Status" in er_status:
     clinical_directive = "CRITICAL DIRECTIVE: TERMINATE TAMOXIFEN PROTOCOL IMMEDIATELY"
@@ -169,10 +177,3 @@ elif calculated_endoxifen < 5.97:
 else:
     clinical_directive = "OPERATIONAL DIRECTIVE: OPTIMAL THERAPEUTIC MAINTENANCE STABILIZED"
     dose_advice = "Maintain standard Tamoxifen protocol at 20mg daily."
-    drug_alternative = "No therapeutic shunting required. Target steady-state concentration is optimal for long-term tumor recurrence prevention."
-    status_alert = st.success
-
-# --- 🎯 INTERACTIVE METRIC DISPATCH ---
-st.header("📊 4. Real-Time Clinical Evaluation Panel")
-m1, m2, m3 = st.columns(3)
-m1.metric("Calculated Renal CrCl Index", f"{calculated_crcl} mL/min")
