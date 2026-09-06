@@ -2,6 +2,10 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import io
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 
 # 1. Premium Institutional Page & Swiss UI Setup
 st.set_page_config(
@@ -156,23 +160,24 @@ if "Negative Status" in er_status:
     clinical_directive = "CRITICAL DIRECTIVE: TERMINATE TAMOXIFEN PROTOCOL IMMEDIATELY"
     dose_advice = "Tamoxifen therapy displays structural futility due to absolute absence of ERα nuclear receptor targets."
     drug_alternative = "Discontinue anti-estrogens. Evaluate alternative cytotoxic chemotherapy regimens or appropriate monoclonal antibody configurations."
+    status_color = "#ef4444"
     status_alert = st.error
 elif hys_law_triggered or "Deep Vein Thrombosis (DVT Cluster Risk)" in comorbidities:
     clinical_directive = "CRITICAL DIRECTIVE: MANDATORY MEDICAL SUSPENSION ADVISED"
     dose_advice = "Hold all active endocrine dosing vectors immediately to mitigate catastrophic safety events."
-    drug_alternative = "🚨 DILI/THROMBOSIS WARNING: Active Hy's Law parameters or extreme peripheral thromboembolic risk verified. Switch to alternative oncology maintenance lines once micro-structural indices stabilize."
+    drug_alternative = "DILI/THROMBOSIS WARNING: Active Hy's Law parameters or extreme peripheral thromboembolic risk verified. Switch to alternative oncology maintenance lines once micro-structural indices stabilize."
+    status_color = "#ef4444"
     status_alert = st.error
 elif "*4/*4" in cyp2d6_profile or "Paroxetine" in cyp2d6_inhibitor:
     clinical_directive = "CRITICAL DIRECTIVE: ENZYME PATHWAY BLOCKADE - PERMANENT SWITCH REQUIRED"
     dose_advice = "Dose escalation to 40mg daily will fail completely due to structural functional invalidation of the CYP2D6 metabolizing loop."
     drug_alternative = "Switch patient immediately to third-generation Aromatase Inhibitors: Anastrozole (1mg daily) or Letrozole (2.5mg daily). Add ovarian suppression if premenopausal."
+    status_color = "#ef4444"
     status_alert = st.error
 elif calculated_endoxifen < 5.97:
     clinical_directive = "OPERATIONAL DIRECTIVE: SUB-THERAPEUTIC PHARMACOKINETIC SPECTRUM DETECTED"
     dose_advice = "Escalate standard Tamoxifen maintenance dose from 20mg to 40mg daily under strict serum level monitoring."
     drug_alternative = "Address adherence barriers. Evaluate secondary shunts. If active concentration profiles fail to clear target floor within 14 days, initiate Aromatase Inhibitor transition."
+    status_color = "#f59e0b"
     status_alert = st.warning
 else:
-    clinical_directive = "OPERATIONAL DIRECTIVE: OPTIMAL THERAPEUTIC MAINTENANCE STABILIZED"
-    dose_advice = "Maintain standard Tamoxifen protocol at 20mg daily."
-    drug_alternative = "No therapeutic shunting required. Target steady-state concentration is optimal for long-term tumor recurrence prevention."
