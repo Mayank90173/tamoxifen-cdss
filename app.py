@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 
 # 1. Premium Institutional Page & Swiss UI Setup
 st.set_page_config(
-    page_title="Zurich Translational Systems Pharmacology Command Center", 
+    page_title="Zurich-India Translational Systems Pharmacology Command Center", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -28,15 +28,19 @@ st.markdown("""
         background: rgba(17, 24, 39, 0.7); border-radius: 16px; padding: 2rem;
         border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 2rem;
     }
+    .disclaimer-box {
+        background-color: rgba(239, 68, 68, 0.05); border: 1px dashed rgba(239, 68, 68, 0.3);
+        border-radius: 10px; padding: 1rem; margin-top: 2rem; font-size: 12px; color: #f87171; line-height: 1.5;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
     <div class="swiss-premium-banner">
-        <span class="system-status">✦ CLINICAL TRANSLATIONAL ONCOLOGY HUB // HCP AUDIT STREAM LEVEL 4</span>
-        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 TRANSLATIONAL SYSTEMS PHARMACOLOGY PLATFORM</h1>
+        <span class="system-status">✦ NATIONAL LEVEL TRANSLATIONAL ONCOLOGY HUB // EVALUATION STREAM PARADIGM</span>
+        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 TRANSLATIONAL SYSTEMS PHARMACOLOGY COMMAND UNIT</h1>
         <p style='color: #94a3b8 !important; margin: 8px 0 0 0; font-size:14px; font-family: monospace;'>
-            H-Informatics Core Architecture • Lead PV Portfolio: Dr. Mayank Virmani | PharmD & PV Scientist
+            H-Informatics Framework Matrix • Core Architecture Lead: Dr. Mayank Virmani | PharmD & PV Scientist Portfolio
         </p>
     </div>
 """, unsafe_allow_html=True)
@@ -55,7 +59,7 @@ with col1:
     gender = st.radio("Biological Configuration", ["Female", "Male"], horizontal=True)
     diet_preference = st.radio("Patient Dietary Vector Configuration", ["Vegetarian Profile", "Non-Vegetarian Profile"], horizontal=True)
     
-    cyp2d6_profile = st.selectbox("CYP2D6 Genomic Architecture (CPIC Target Axis)", [
+    cyp2d6_profile = st.selectbox("CYP2D6 Genomic Architecture (CPIC Focus Axis)", [
         "*1xN/*1 (Ultra-rapid Metabolizer - Functional Activity Score: >2.0)",
         "*1/*1 (Normal Metabolizer - Baseline Metabolic Velocity)", 
         "*1/*10 (Intermediate Metabolizer - Impaired Flux Spectrum)", 
@@ -140,7 +144,7 @@ time_axis = list(range(1, 31))
 kinetics_curve = [round(base_flux * compliance * (1 - np.exp(-ke * t)), 2) for t in time_axis]
 
 # --- CLINICAL PROTOCOL JUDGEMENT LOGIC (HCP GRADE) ---
-evidence_source = "CPIC Guidelines (2023 Update) & FDA Oncology Pharmacovigilance Mandates"
+evidence_source = "CPIC Guidelines Reference Model & FDA Oncology Pharmacovigilance Protocols"
 
 if "Negative Status" in er_status:
     clinical_directive = "CRITICAL DIRECTIVE: TERMINATE TAMOXIFEN PROTOCOL IMMEDIATELY"
@@ -150,7 +154,7 @@ if "Negative Status" in er_status:
 elif hys_law_triggered or "Deep Vein Thrombosis (DVT Cluster Risk)" in comorbidities:
     clinical_directive = "CRITICAL DIRECTIVE: MANDATORY MEDICAL SUSPENSION ADVISED"
     dose_advice = "Hold all active endocrine dosing vectors immediately to mitigate catastrophic safety events."
-    drug_alternative = "🚨 DILl/THROMBOSIS WARNING: Active Hy's Law parameters or extreme peripheral thromboembolic risk verified. Switch to alternative oncology maintenance lines once micro-structural indices stabilize."
+    drug_alternative = "🚨 DILI/THROMBOSIS WARNING: Active Hy's Law parameters or extreme peripheral thromboembolic risk verified. Switch to alternative oncology maintenance lines once micro-structural indices stabilize."
     status_alert = st.error
 elif "*4/*4" in cyp2d6_profile or "Paroxetine" in cyp2d6_inhibitor:
     clinical_directive = "CRITICAL DIRECTIVE: ENZYME PATHWAY BLOCKADE - PERMANENT SWITCH REQUIRED"
@@ -172,8 +176,3 @@ else:
 st.header("📊 4. Real-Time Clinical Evaluation Panel")
 m1, m2, m3 = st.columns(3)
 m1.metric("Calculated Renal CrCl Index", f"{calculated_crcl} mL/min")
-m2.metric("Steady-State Endoxifen (Css)", f"{calculated_endoxifen} ng/mL")
-m3.metric("Therapeutic Target Floor", "5.97 ng/mL")
-
-st.markdown("#### Operational Directive Command")
-status_alert(f"**{clinical_directive}**")
