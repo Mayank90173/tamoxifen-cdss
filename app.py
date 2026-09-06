@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import io
 
-# 1. Page & Swiss UI Setup
+# 1. Page Configuration & Swiss Base Interface Setup
 st.set_page_config(
     page_title="Zurich Translational Systems Pharmacology Command Center", 
     layout="wide",
@@ -15,6 +15,7 @@ st.markdown("""
     <style>
     .stApp { background-color: #060913; color: #f8fafc; }
     h1, h2, h3, h4, p, span, label, div { font-family: 'Inter', system-ui, sans-serif; }
+    
     .swiss-premium-banner {
         background: linear-gradient(135deg, #022c22 0%, #0b1329 50%, #1e1b4b 100%);
         border-radius: 20px; padding: 2.5rem; position: relative; overflow: hidden;
@@ -48,7 +49,7 @@ st.markdown("""
 if 'patient_ledger' not in st.session_state:
     st.session_state.patient_ledger = []
 
-# Main Input Interface Grid
+# Main Input Interface Grid Setup
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -183,4 +184,3 @@ elif calculated_endoxifen < 5.97:
     ui_status_color = "#f59e0b"
     status_alert = st.warning
 else:
-    clinical_directive = "OPERATIONAL DIRECTIVE: OPTIMAL THERAPEUTIC MAINTENANCE STABILIZED"
