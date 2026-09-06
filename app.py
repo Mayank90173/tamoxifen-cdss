@@ -2,19 +2,15 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import io
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
 
-# 1. Premium Institutional Page & Swiss UI Setup
+# 1. Page & Swiss UI Setup
 st.set_page_config(
     page_title="Zurich Translational Systems Pharmacology Command Center", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom High-Tech Cybernetic Medical HUD Aesthetic (Pure CSS Standard Formatting)
+# Custom High-Tech Cybernetic Medical HUD Aesthetic
 st.markdown("""
     <style>
     .stApp { background-color: #060913; color: #f8fafc; }
@@ -103,7 +99,7 @@ with col3:
     creatinine = st.number_input("Serum Creatinine Clear Marker (mg/dL)", min_value=0.2, max_value=12.0, value=1.40, step=0.05)
     serum_ast = st.number_input("Hepatic Transaminase AST (U/L)", min_value=5, max_value=3000, value=145, step=5)
     serum_alt = st.number_input("Hepatic Transaminase ALT (U/L)", min_value=5, max_value=3000, value=165, step=5)
-    total_bilirubin = st.number_input("Total Bilirubin Mass Fraction (mg/dL)", min_value=0.1, max_value=20.0, value=2.6, step=0.1)
+    total_bilirubin = st.number_input("Total Bilirubin Mass Fraction (mg/dL)", min_value=0.1, max_value=20.0, value=2.60, step=0.1)
     
     comorbidities = st.multiselect("Active Pathological Overlays", [
         "Deep Vein Thrombosis (DVT Cluster Risk)",
@@ -115,7 +111,7 @@ with col3:
     compliance = st.slider("Adherence Control (MEMS Smart-Cap %)", 10, 100, 85) / 100.0
     days_on_therapy = st.number_input("Duration Cycle Status (Days Active)", min_value=1, max_value=730, value=24)
 
-# --- PHARMACOLOGY DEEP DEEP METABOLIC KINETIC ENGINE ---
+# --- ADVANCED PHARMACOLOGICAL METABOLIC DEEP KINETIC ENGINE ---
 gender_multiplier = 0.85 if gender == "Female" else 1.0
 calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_multiplier, 1)
 ke = 0.028 if calculated_crcl >= 60 else 0.045 if calculated_crcl >= 30 else 0.065
@@ -148,15 +144,21 @@ calculated_endoxifen = round(base_flux * compliance * (1 - np.exp(-ke * days_on_
 time_axis = list(range(1, 31))
 kinetics_curve = [round(base_flux * compliance * (1 - np.exp(-ke * t)), 2) for t in time_axis]
 
+# Secure Native Chart Builders to avoid canvas failures
 chart_dataframe = pd.DataFrame({
     'Plasma Concentration (ng/mL)': kinetics_curve,
     'CPIC Target Limit Floor': [5.97] * 30
 }, index=time_axis)
 
+# Hepatic status array builder for Liver HUD representation
+hep_chart_data = pd.DataFrame({
+    'AST Level (U/L)': [serum_ast],
+    'ALT Level (U/L)': [serum_alt]
+})
+
 # --- CLINICAL PROTOCOL JUDGEMENT LOGIC (HCP GRADE) ---
 evidence_source = "CPIC Guidelines (2023 Update) & FDA Oncology Pharmacovigilance Mandates"
 
-# 🚨 FIX: Explicit initialization of color tracking identifiers across all logical branches
 if "Negative Status" in er_status:
     clinical_directive = "CRITICAL DIRECTIVE: TERMINATE TAMOXIFEN PROTOCOL IMMEDIATELY"
     dose_advice = "Tamoxifen therapy displays structural futility due to absolute absence of ERα nuclear receptor targets."
@@ -178,3 +180,8 @@ elif "*4/*4" in cyp2d6_profile or "Paroxetine" in cyp2d6_inhibitor:
 elif calculated_endoxifen < 5.97:
     clinical_directive = "OPERATIONAL DIRECTIVE: SUB-THERAPEUTIC PHARMACOKINETIC SPECTRUM DETECTED"
     dose_advice = "Escalate standard Tamoxifen maintenance dose from 20mg to 40mg daily under strict serum level monitoring."
+    drug_alternative = "Address adherence barriers. Evaluate secondary shunts. If active concentration profiles fail to clear target floor within 14 days, initiate Aromatase Inhibitor transition."
+    ui_status_color = "#f59e0b"
+    status_alert = st.warning
+else:
+    clinical_directive = "OPERATIONAL DIRECTIVE: OPTIMAL THERAPEUTIC MAINTENANCE STABILIZED"
