@@ -1,9 +1,8 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import io
 
-# 1. Premium Institutional Page Configuration
+# 1. Page Config Setup
 st.set_page_config(
     page_title="Zurich Translational Systems Pharmacology Command Center", 
     layout="wide",
@@ -11,7 +10,7 @@ st.set_page_config(
 )
 
 st.title("🧬 Systems Pharmacology Translational Oncology Center")
-st.caption("H-Informatics Framework Matrix • Core Lead Portfolio: Dr. Mayank Virmani | PharmD & PV Scientist")
+st.caption("H-Informatics Framework Matrix | Lead PV Portfolio: Dr. Mayank Virmani | PharmD & PV Scientist")
 
 if 'patient_ledger' not in st.session_state:
     st.session_state.patient_ledger = []
@@ -83,19 +82,16 @@ gender_multiplier = 0.85 if gender == "Female" else 1.0
 calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_multiplier, 1)
 ke = 0.028 if calculated_crcl >= 60 else 0.045 if calculated_crcl >= 30 else 0.065
 
-# 1. Primary CYP2D6 Pathway Flux Calculations
 if "*4/*4" in cyp2d6_profile: base_flux = 7.2
 elif "*1/*10" in cyp2d6_profile: base_flux = 13.8
 elif "*1/*1" in cyp2d6_profile: base_flux = 24.5
 else: base_flux = 34.0  
 
-# 2. Deep PGx Modifications
 if "CYP2C19*2/*2" in cyp2c9_c19_profile: base_flux *= 0.82 
 elif "CYP2C9*3" in cyp2c9_c19_profile: base_flux *= 0.90
 if "SULT1A1 Deletion" in sult1a1_cnv: base_flux *= 0.75 
 elif "SULT1A1 Amplification" in sult1a1_cnv: base_flux *= 1.15 
 
-# 3. DDI Interferences
 if "Paroxetine" in cyp2d6_inhibitor: base_flux *= 0.15 
 elif "Bupropion" in cyp2d6_inhibitor: base_flux *= 0.30
 elif "Sertraline" in cyp2d6_inhibitor: base_flux *= 0.65
@@ -127,7 +123,7 @@ if "Negative Status" in er_status:
 elif hys_law_triggered or "Deep Vein Thrombosis (DVT Cluster Risk)" in comorbidities:
     clinical_directive = "CRITICAL DIRECTIVE: MANDATORY MEDICAL SUSPENSION ADVISED"
     dose_advice = "Hold all active endocrine dosing vectors immediately to mitigate catastrophic safety events."
-    drug_alternative = "🚨 DILI/THROMBOSIS WARNING: Active Hy's Law parameters or extreme peripheral thromboembolic risk verified. Switch to alternative oncology maintenance lines once micro-structural indices stabilize."
+    drug_alternative = "DILI/THROMBOSIS WARNING: Active Hy's Law parameters or extreme peripheral thromboembolic risk verified. Switch to alternative oncology maintenance lines once micro-structural indices stabilize."
     status_alert = st.error
 elif "*4/*4" in cyp2d6_profile or "Paroxetine" in cyp2d6_inhibitor:
     clinical_directive = "CRITICAL DIRECTIVE: ENZYME PATHWAY BLOCKADE - PERMANENT SWITCH REQUIRED"
@@ -153,24 +149,25 @@ m2.metric("Steady-State Endoxifen (Css)", f"{calculated_endoxifen} ng/mL")
 m3.metric("Therapeutic Target Floor", "5.97 ng/mL")
 
 st.markdown("#### Operational Directive Command")
-status_alert(f"**{clinical_directive}**")
-st.info(f"📚 **Clinical Evidence Source Matrix:** {evidence_source}")
+status_alert(clinical_directive)
+st.info(f"Clinical Evidence Source Matrix: {evidence_source}")
 
 st.subheader("🔬 View Automated Dose Strategy & Alternative Drug Selections")
-st.write(f"**Recommended Dose Strategy:** {dose_advice}")
-st.write(f"**Alternative Choice Selection:** {drug_alternative}")
+st.write(f"Recommended Dose Strategy: {dose_advice}")
+st.write(f"Alternative Choice Selection: {drug_alternative}")
 
 # --- 📊 5. PROJECTED ACCUMULATION SIMULATION LINE CHART ---
 st.header("📈 5. Projected 30-Day Pharmacokinetic (PK) Accumulation Curve")
 st.line_chart(chart_dataframe, height=300, use_container_width=True)
 
-# --- 🥗 6. PATIENT DIETARY METABOLIC BLUEPRINT (VEG VS NON-VEG MATRIX) ---
+# --- 🥗 6. PATIENT DIETARY METABOLIC BLUEPRINT ---
 st.header("🥗 6. Tailored Metabolic Dietary Adaptation Blueprint")
 dietary_matrix = []
 fluid_target = max(1.5, round((weight * 30) / 1000, 1))
 
 if "Vegetarian Profile" in diet_preference:
-    dietary_matrix.append("- **Vegetarian Phase II Support:** Enrich daily nutrition with high-density plant organosulfur configurations (allium matrix: garlic, leeks, shallots, onions) to directly safeguard the volatile substrate pool required for active SULT1A1 sulfoconjugation pathways.")
+    dietary_matrix.append("- Vegetarian Phase II Support: Enrich daily nutrition with high-density plant organosulfur configurations (allium matrix: garlic, leeks, shallots, onions) to directly safeguard the volatile substrate pool required for active SULT1A1 sulfoconjugation pathways.")
     if "Non-Alcoholic Fatty Liver Disease" in comorbidities:
-        dietary_matrix.append("- **Vegetarian Hepatocyte Protection Plan:** Maximize daily choline reserves through plant-based sources like soy lecithin, organic tofu, and brussels sprouts to facilitate normal VLDL export kinetics.")
+        dietary_matrix.append("- Vegetarian Hepatocyte Protection Plan: Maximize daily choline reserves through plant-based sources like soy lecithin, organic tofu, and brussels sprouts to facilitate normal VLDL export kinetics.")
 else:
+    dietary_matrix.append("- Non-Vegetarian Phase II Support: Integrate highly bioavailable marine fatty acids (EPA/DHA via wild-caught cold water fish) to regulate systemic vascular cell membrane flexibility.")
