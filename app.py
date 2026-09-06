@@ -1,16 +1,50 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
+import io
 
-# 1. Page Config Setup
+# 1. Premium Institutional Page & Swiss UI Setup
 st.set_page_config(
     page_title="Zurich Translational Systems Pharmacology Command Center", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-st.title("🧬 Systems Pharmacology Translational Oncology Center")
-st.caption("H-Informatics Framework Matrix | Lead PV Portfolio: Dr. Mayank Virmani | PharmD & PV Scientist")
+# Custom High-Tech Cybernetic Medical HUD Aesthetic (Pure CSS Standard Formatting)
+st.markdown("""
+    <style>
+    .stApp { background-color: #060913; color: #f8fafc; }
+    h1, h2, h3, h4, p, span, label, div { font-family: 'Inter', system-ui, sans-serif; }
+    
+    .swiss-premium-banner {
+        background: linear-gradient(135deg, #022c22 0%, #0b1329 50%, #1e1b4b 100%);
+        border-radius: 20px; padding: 2.5rem; position: relative; overflow: hidden;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); margin-bottom: 2.5rem;
+    }
+    .system-status { font-size: 11px; font-family: monospace; text-transform: uppercase; letter-spacing: 1px; color: #10b981; font-weight: bold; }
+    .swiss-card {
+        background: rgba(17, 24, 39, 0.7); border-radius: 16px; padding: 2rem;
+        border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-bottom: 2rem;
+    }
+    .disclaimer-box {
+        background-color: rgba(239, 68, 68, 0.05); border: 1px dashed rgba(239, 68, 68, 0.3);
+        border-radius: 10px; padding: 1rem; margin-top: 2rem; font-size: 12px; color: #f87171; line-height: 1.5;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+    <div class="swiss-premium-banner">
+        <div style="padding-left: 0.5rem;">
+            <span class="system-status">✦ CLINICAL TRANSLATIONAL ONCOLOGY HUB // INSTITUTIONAL AUDIT LEVEL 4</span>
+            <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 TRANSLATIONAL SYSTEMS PHARMACOLOGY PLATFORM</h1>
+            <p style='color: #94a3b8 !important; margin: 8px 0 0 0; font-size:14px; font-family: monospace;'>
+                H-Informatics Core Architecture • Lead PV Portfolio: Dr. Mayank Virmani | PharmD & PV Scientist
+            </p>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
 if 'patient_ledger' not in st.session_state:
     st.session_state.patient_ledger = []
@@ -77,27 +111,31 @@ with col3:
     compliance = st.slider("Adherence Control (MEMS Smart-Cap %)", 10, 100, 85) / 100.0
     days_on_therapy = st.number_input("Duration Cycle Status (Days Active)", min_value=1, max_value=730, value=24)
 
-# --- PHARMACOLOGY DEEP DEEP METABOLIC KINETIC ENGINE ---
+# --- ADVANCED PHARMACOLOGICAL METABOLIC DEEP KINETIC ENGINE ---
 gender_multiplier = 0.85 if gender == "Female" else 1.0
 calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_multiplier, 1)
 ke = 0.028 if calculated_crcl >= 60 else 0.045 if calculated_crcl >= 30 else 0.065
 
+# 1. Primary CYP2D6 Phase I Pathway Flux Calculations
 if "*4/*4" in cyp2d6_profile: base_flux = 7.2
 elif "*1/*10" in cyp2d6_profile: base_flux = 13.8
 elif "*1/*1" in cyp2d6_profile: base_flux = 24.5
 else: base_flux = 34.0  
 
+# 2. Deep Secondary Phase I & Phase II Shunt Modifications
 if "CYP2C19*2/*2" in cyp2c9_c19_profile: base_flux *= 0.82 
 elif "CYP2C9*3" in cyp2c9_c19_profile: base_flux *= 0.90
 if "SULT1A1 Deletion" in sult1a1_cnv: base_flux *= 0.75 
 elif "SULT1A1 Amplification" in sult1a1_cnv: base_flux *= 1.15 
 
+# 3. Xenobiotic Drug Interferences Cross-Multiplication (DDI)
 if "Paroxetine" in cyp2d6_inhibitor: base_flux *= 0.15 
 elif "Bupropion" in cyp2d6_inhibitor: base_flux *= 0.30
 elif "Sertraline" in cyp2d6_inhibitor: base_flux *= 0.65
 if "Rifampicin" in cyp3a4_modulator: base_flux *= 0.45 
 elif "Ketoconazole" in cyp3a4_modulator: base_flux *= 1.25 
 
+# 4. Comorbidity Hepatic Loading Constraints
 if "Non-Alcoholic Fatty Liver Disease" in comorbidities: base_flux *= 0.80
 
 hys_law_triggered = (serum_ast > 120 or serum_alt > 120) and (total_bilirubin > 2.0)
@@ -123,7 +161,7 @@ if "Negative Status" in er_status:
 elif hys_law_triggered or "Deep Vein Thrombosis (DVT Cluster Risk)" in comorbidities:
     clinical_directive = "CRITICAL DIRECTIVE: MANDATORY MEDICAL SUSPENSION ADVISED"
     dose_advice = "Hold all active endocrine dosing vectors immediately to mitigate catastrophic safety events."
-    drug_alternative = "DILI/THROMBOSIS WARNING: Active Hy's Law parameters or extreme peripheral thromboembolic risk verified. Switch to alternative oncology maintenance lines once micro-structural indices stabilize."
+    drug_alternative = "🚨 DILI/THROMBOSIS WARNING: Active Hy's Law parameters or extreme peripheral thromboembolic risk verified. Switch to alternative oncology maintenance lines once micro-structural indices stabilize."
     status_alert = st.error
 elif "*4/*4" in cyp2d6_profile or "Paroxetine" in cyp2d6_inhibitor:
     clinical_directive = "CRITICAL DIRECTIVE: ENZYME PATHWAY BLOCKADE - PERMANENT SWITCH REQUIRED"
@@ -138,36 +176,3 @@ elif calculated_endoxifen < 5.97:
 else:
     clinical_directive = "OPERATIONAL DIRECTIVE: OPTIMAL THERAPEUTIC MAINTENANCE STABILIZED"
     dose_advice = "Maintain standard Tamoxifen protocol at 20mg daily."
-    drug_alternative = "No therapeutic shunting required. Target steady-state concentration is optimal for long-term tumor recurrence prevention."
-    status_alert = st.success
-
-# --- 🎯 INTERACTIVE METRIC DISPATCH PANEL ---
-st.header("📊 4. Real-Time Clinical Evaluation Panel")
-m1, m2, m3 = st.columns(3)
-m1.metric("Calculated Renal CrCl Index", f"{calculated_crcl} mL/min")
-m2.metric("Steady-State Endoxifen (Css)", f"{calculated_endoxifen} ng/mL")
-m3.metric("Therapeutic Target Floor", "5.97 ng/mL")
-
-st.markdown("#### Operational Directive Command")
-status_alert(clinical_directive)
-st.info(f"Clinical Evidence Source Matrix: {evidence_source}")
-
-st.subheader("🔬 View Automated Dose Strategy & Alternative Drug Selections")
-st.write(f"Recommended Dose Strategy: {dose_advice}")
-st.write(f"Alternative Choice Selection: {drug_alternative}")
-
-# --- 📊 5. PROJECTED ACCUMULATION SIMULATION LINE CHART ---
-st.header("📈 5. Projected 30-Day Pharmacokinetic (PK) Accumulation Curve")
-st.line_chart(chart_dataframe, height=300, use_container_width=True)
-
-# --- 🥗 6. PATIENT DIETARY METABOLIC BLUEPRINT ---
-st.header("🥗 6. Tailored Metabolic Dietary Adaptation Blueprint")
-dietary_matrix = []
-fluid_target = max(1.5, round((weight * 30) / 1000, 1))
-
-if "Vegetarian Profile" in diet_preference:
-    dietary_matrix.append("- Vegetarian Phase II Support: Enrich daily nutrition with high-density plant organosulfur configurations (allium matrix: garlic, leeks, shallots, onions) to directly safeguard the volatile substrate pool required for active SULT1A1 sulfoconjugation pathways.")
-    if "Non-Alcoholic Fatty Liver Disease" in comorbidities:
-        dietary_matrix.append("- Vegetarian Hepatocyte Protection Plan: Maximize daily choline reserves through plant-based sources like soy lecithin, organic tofu, and brussels sprouts to facilitate normal VLDL export kinetics.")
-else:
-    dietary_matrix.append("- Non-Vegetarian Phase II Support: Integrate highly bioavailable marine fatty acids (EPA/DHA via wild-caught cold water fish) to regulate systemic vascular cell membrane flexibility.")
