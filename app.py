@@ -1,7 +1,6 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import io
 
 # 1. Premium Institutional Page & Swiss UI Setup
 st.set_page_config(
@@ -173,3 +172,5 @@ fluid_target = max(1.5, round((weight * 30) / 1000, 1))
 if "Vegetarian Profile" in diet_preference:
     dietary_matrix.append("- **Vegetarian Phase II Support:** Enrich daily nutrition with high-density plant organosulfur configurations (allium matrix: garlic, leeks, shallots, onions) to directly safeguard the volatile substrate pool required for active SULT1A1 sulfoconjugation pathways.")
     if "Non-Alcoholic Fatty Liver Disease" in comorbidities:
+        dietary_matrix.append("- **Vegetarian Hepatocyte Protection Plan:** Maximize daily choline reserves through plant-based sources like soy lecithin, organic tofu, and brussels sprouts to facilitate normal VLDL export kinetics.")
+else:
