@@ -15,7 +15,6 @@ st.markdown("""
     <style>
     .stApp { background-color: #060913; color: #f8fafc; }
     h1, h2, h3, h4, p, span, label, div { font-family: 'Inter', system-ui, sans-serif; }
-    
     .swiss-premium-banner {
         background: linear-gradient(135deg, #022c22 0%, #0b1329 50%, #1e1b4b 100%);
         border-radius: 20px; padding: 2.5rem; position: relative; overflow: hidden;
