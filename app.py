@@ -180,3 +180,4 @@ elif calculated_endoxifen < 5.97:
 else:
     suggested_drug = "Tamoxifen (Standard Maintenance Profile)"
     suggested_dose = "Tamoxifen 20mg PO Daily"
+    clinical_directive = "THERAPEUTIC WINDOW MET: Predicted steady-state Endoxifen parameters map securely above the critical 5.97 ng/mL threshold floor."
