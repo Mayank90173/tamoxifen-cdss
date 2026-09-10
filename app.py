@@ -119,34 +119,27 @@ with col3:
 # ─── SYSTEM PHARMACOLOGY KINETIC ARCHITECTURE ENGINE ────────────────────────
 gender_multiplier = 0.85 if gender == "Female" else 1.0
 calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_multiplier, 1)
-
-# Clearance Constant calculation based on Renal Profile
 ke = 0.025 if calculated_crcl >= 60 else 0.042 if calculated_crcl >= 30 else 0.068
 
-# Base Flux mapping for Tamoxifen to Active Endoxifen (ng/mL) transformation
 if "*4/*4" in cyp2d6_profile: base_flux = 6.8
 elif "*1/*10" in cyp2d6_profile: base_flux = 12.5
 elif "*1/*1" in cyp2d6_profile: base_flux = 26.2
-else: base_flux = 36.8  # Ultra-rapid metabolizer
+else: base_flux = 36.8  
 
-# PGx Modifiers mapping
 if "CYP2C19*2/*2" in cyp2c9_c19_profile: base_flux *= 0.80
 if "SULT1A1 Deletion" in sult1a1_cnv: base_flux *= 0.70
 elif "SULT1A1 Amplification" in sult1a1_cnv: base_flux *= 1.20
 
-# DDI Modifiers mapping
-if "Paroxetine" in cyp2d6_inhibitor: base_flux *= 0.12  # Complete phenoconversion to poor metabolizer
+if "Paroxetine" in cyp2d6_inhibitor: base_flux *= 0.12  
 elif "Bupropion" in cyp2d6_inhibitor: base_flux *= 0.28
 elif "Sertraline" in cyp2d6_inhibitor: base_flux *= 0.60
-if "Rifampicin" in cyp3a4_modulator: base_flux *= 0.40  # Shunts to alternate low affinity targets
+if "Rifampicin" in cyp3a4_modulator: base_flux *= 0.40  
 elif "Ketoconazole" in cyp3a4_modulator: base_flux *= 1.30
 
-# Metabolic adjustments for Liver Disease & DILI
 if "Non-Alcoholic Fatty Liver Disease" in comorbidities: base_flux *= 0.75
-hys_law_triggered = (serum_ast > 3 * 40 or serum_alt > 3 * 40) and (total_bilirubin > 2.0)
+hys_law_triggered = (serum_ast > 120 or serum_alt > 120) and (total_bilirubin > 2.0)
 if hys_law_triggered: base_flux *= 0.30
 
-# Steady-state kinetic integration
 calculated_endoxifen = round(base_flux * compliance, 2)
 time_axis = list(range(1, 31))
 kinetics_curve = [round(base_flux * compliance * (1 - np.exp(-ke * t)), 2) for t in time_axis]
@@ -156,41 +149,35 @@ chart_dataframe = pd.DataFrame({
     'CPIC Efficacy Threshold Floor': [5.97] * 30
 }, index=time_axis)
 
-# ─── SYSTEM DYNAMICS MATRICES (RECEPTORS & TOXICOLOGY) ───────────────────────
-st.write("---")
-tab1, tab2, tab3 = st.tabs(["🎯 Receptor Optimization Mapping", "⚠️ Advanced Toxicological Profiling", "📋 Clinical Decision Directives"])
+# ─── HIGH-CLINICAL STRATEGY DECISION ENGINE (CPIC / ASCO / ESMO) ────────────
+clinical_guideline_source = "CPIC Guidelines (2023 Focused Update) & ASCO/ESMO Endocrine Mandates"
 
-with tab1:
-    st.markdown("### 🧬 Systemic Receptor Occupancy & Target Dynamics")
-    
-    # Mathematical models representing competitive inhibition metrics
-    er_affinity = "100%" if "Positive" in er_status else "0% (Absolute Pathway Invalidation)"
-    cyp2d6_saturation = "92% Saturation" if "Paroxetine" in cyp2d6_inhibitor or "Bupropion" in cyp2d6_inhibitor else "Minimal / Control Baseline"
-    
-    r_col1, r_col2 = st.columns(2)
-    with r_col1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h5>Nuclear Estrogen Receptor Alpha (ERα) Target Affinity</h5>
-            <h2 style='color:#38bdf8;'>{er_affinity}</h2>
-            <p style='font-size:12px; color:#94a3b8;'>Tamoxifen must undergo metabolic bioactivation into 4-hydroxy-tamoxifen and <strong>Endoxifen</strong> to achieve 30-100x higher binding affinity to ERα than parent compound.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    with r_col2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h5>CYP2D6 Catalytic Complex Competitive Saturation</h5>
-            <h2 style='color:#fbbf24;'>{cyp2d6_saturation}</h2>
-            <p style='font-size:12px; color:#94a3b8;'>Co-administration of SSRIs/SNRIs blocks the substrate binding pocket of the CYP2D6 enzyme, forcing chemical phenoconversion regardless of genetic wildtype.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-with tab2:
-    st.markdown("### ☠️ Multi-Organ Systems Toxicity Quantitation Matrix")
-    
-    # Calculate relative toxicity scores
-    dili_score = 95 if hys_law_triggered else (45 if "Non-Alcoholic Fatty Liver Disease" in comorbidities else 15)
-    thrombotic_score = 85 if "Deep Vein Thrombosis (DVT Risk)" in comorbidities else 25
-    uterine_hyperplasia_score = 75 if "Endometrial Hyperplasia Hyper-proliferation" in comorbidities else 20
-    
-    t_col1, t_col2, t_col3 = st.columns(3)
+if "Negative Status" in er_status:
+    suggested_drug = "Non-Endocrine Regimens (Anthracyclines/Taxanes or Target-directed Biologics)"
+    suggested_dose = "Discontinue Tamoxifen Completely (0.0 mg)"
+    clinical_directive = "CRITICAL CONTRAINDICATION: Tumor presents as ERα-Negative. Endocrine therapy targets are absent, predicting 100% downstream therapeutic futility."
+    regimen_action = "Pivot to medical oncology standard cytotoxic chemotherapy paradigms immediately."
+    alert_type = "error"
+elif hys_law_triggered:
+    suggested_drug = "Endocrine Therapy Interruption"
+    suggested_dose = "Absolute Clinical Hold (0.0 mg)"
+    clinical_directive = "ACUTE DILI HAZARD: Patient criteria trigger Hy's Law (Transaminases >3x ULN combined with Total Bilirubin >2x ULN). Fulminant hepatic failure risk is high."
+    regimen_action = "Immediately suspend all endocrine variables. Initiate baseline hepatic recovery metrics and clear all alternate metabolic shunts."
+    alert_type = "error"
+elif calculated_endoxifen < 5.97:
+    if "*4/*4" in cyp2d6_profile or "Paroxetine" in cyp2d6_inhibitor:
+        suggested_drug = "Aromatase Inhibitor Switch (e.g., Anastrozole / Letrozole)"
+        suggested_dose = "Anastrozole 1mg PO Daily (+ GnRH analogue if premenopausal)"
+        clinical_directive = "CPIC THERAPEUTIC FAILURE ALERT: Poor CYP2D6 metabolizer status or profound competitive drug inhibition drops active Endoxifen levels below the 5.97 ng/mL efficacy floor."
+        regimen_action = "Per CPIC 2023 mandates, switch alternative endocrine vector to an Aromatase Inhibitor axis to bypass the invalidated hepatic Phase-I pathway."
+        alert_type = "warning"
+    else:
+        suggested_drug = "Tamoxifen (Optimized Dose Escalation Strategy)"
+        suggested_dose = "Tamoxifen 40mg PO Daily (Split into 20mg BID)"
+        clinical_directive = "SUB-OPTIMAL EXPOSURE INDICATION: Endoxifen levels fail to secure the therapeutic window baseline due to Intermediate Metabolism or compliance drops."
+        regimen_action = "Escalate standard Tamoxifen profile to 40mg daily under precise monitoring, and optimize patient adherence protocols."
+        alert_type = "warning"
+else:
+    suggested_drug = "Tamoxifen (Standard Maintenance Profile)"
+    suggested_dose = "Tamoxifen 20mg PO Daily"
+    clinical_directive = "THERAPEUTIC WINDOW MET: Predicted steady-state Endoxifen parameters map securely above the critical 5.97 ng/mL threshold floor."
