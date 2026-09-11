@@ -101,7 +101,7 @@ with col2:
     ])
 
 with col3:
-    st.markdown("<div class='hud-header'>📊 3. End-Organ Clearances & Safety</div>", unsafe_allow_html=True)
+    st.markdown("<div class='hud-header'>📊 3. End-Organ Clearances & Safety Markers</div>", unsafe_allow_html=True)
     creatinine = st.number_input("Serum Creatinine Clear Marker (mg/dL)", min_value=0.2, max_value=12.0, value=1.35, step=0.05)
     serum_ast = st.number_input("Hepatic Transaminase AST (U/L)", min_value=5, max_value=3000, value=145, step=5)
     serum_alt = st.number_input("Hepatic Transaminase ALT (U/L)", min_value=5, max_value=3000, value=165, step=5)
@@ -116,14 +116,14 @@ with col3:
     
     compliance = st.slider("Adherence Control (MEMS Smart-Cap %)", 10, 100, 90) / 100.0
 
-# ─── REAL WORLD DATA BASED PHARMACOLOGICAL KINETIC ENGINE ───────────────────────
+# ─── REAL-WORLD PHARMACOKINETIC TRANSLATIONAL METABOLIC ENGINE ──────────────
 gender_multiplier = 0.85 if gender == "Female" else 1.0
 calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_multiplier, 1)
 
 # Clearance Constant calculation based on Renal Profile
 ke = 0.025 if calculated_crcl >= 60 else 0.042 if calculated_crcl >= 30 else 0.068
 
-# Base Flux mapping for Tamoxifen to Active Endoxifen (ng/mL) transformation based on real clinical cohorts
+# Base Flux mapping for Tamoxifen to Active Endoxifen (ng/mL) transformation based on clinical data
 if "*4/*4" in cyp2d6_profile: base_flux = 6.8
 elif "*1/*10" in cyp2d6_profile: base_flux = 12.5
 elif "*1/*1" in cyp2d6_profile: base_flux = 26.2
@@ -181,5 +181,3 @@ elif calculated_endoxifen < 5.97:
         regimen_action = "Escalate standard Tamoxifen profile to 40mg daily under precise monitoring, and optimize patient adherence protocols."
         alert_type = "warning"
 else:
-    suggested_drug = "Tamoxifen (Standard Maintenance Profile)"
-    suggested_dose = "Tamoxifen 20mg PO Daily"
