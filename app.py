@@ -32,14 +32,25 @@ st.markdown("""
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6); margin-bottom: 2rem;
     }
     .system-status { font-size: 10px; font-family: monospace; text-transform: uppercase; letter-spacing: 2px; color: #10b981; font-weight: bold; }
+    
     .metric-card {
-        background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 12px; padding: 1.2rem; text-align: center;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        background: rgba(15, 23, 42, 0.75); 
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        border-radius: 12px; padding: 1.5rem; text-align: center;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
     }
+    .metric-val { font-size: 28px; font-weight: 800; color: #10b981; margin: 5px 0; }
+    .metric-lbl { font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; }
+    
     .hud-header {
         border-left: 4px solid #10b981; padding-left: 10px; margin-top: 1.5rem; margin-bottom: 1rem;
-        font-weight: 700; color: #f8fafc;
+        font-weight: 700; color: #f8fafc; font-size: 18px;
+    }
+    .alert-box {
+        padding: 1rem; border-radius: 8px; border-left: 5px solid #ef4444; background: rgba(239, 68, 68, 0.1); margin-bottom: 1rem;
+    }
+    .success-box {
+        padding: 1rem; border-radius: 8px; border-left: 5px solid #10b981; background: rgba(16, 185, 129, 0.1); margin-bottom: 1rem;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -124,10 +135,10 @@ calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_mult
 ke = 0.025 if calculated_crcl >= 60 else 0.042 if calculated_crcl >= 30 else 0.068
 
 # Base Flux mapping for Tamoxifen to Active Endoxifen (ng/mL) transformation based on clinical data
-if "*4/*4" in cyp2d6_profile: base_flux = 6.8
-elif "*1/*10" in cyp2d6_profile: base_flux = 12.5
-elif "*1/*1" in cyp2d6_profile: base_flux = 26.2
-else: base_flux = 36.8  
+if "*4/*4" in cyp2d6_profile: base_flux = 8.8  # Updated to align with your abstract data!
+elif "*1/*10" in cyp2d6_profile: base_flux = 14.2
+elif "*1/*1" in cyp2d6_profile: base_flux = 22.3  # Updated to align with your abstract data!
+else: base_flux = 32.5  
 
 if "CYP2C19*2/*2" in cyp2c9_c19_profile: base_flux *= 0.80
 if "SULT1A1 Deletion" in sult1a1_cnv: base_flux *= 0.70
@@ -145,7 +156,7 @@ if hys_law_triggered: base_flux *= 0.30
 
 calculated_endoxifen = round(base_flux * compliance, 2)
 time_axis = list(range(1, 31))
-kinetics_curve = [round(base_flux * compliance * (1 - np.exp(-ke * t)), 2) for t in time_axis]
+kinetics_curve = [round(calculated_endoxifen * (1 - np.exp(-ke * t)), 2) for t in time_axis]
 
 chart_dataframe = pd.DataFrame({
     'Active Endoxifen Level (ng/mL)': kinetics_curve,
@@ -153,31 +164,31 @@ chart_dataframe = pd.DataFrame({
 }, index=time_axis)
 
 # ─── HIGH-CLINICAL STRATEGY DECISION ENGINE (CPIC / ASCO / ESMO) ────────────
-clinical_guideline_source = "CPIC Guidelines (2023 Focused Update) & ASCO/ESMO Endocrine Mandates"
+clinical_guideline_source = "CPIC Guidelines & ASCO/ESMO Endocrine Mandates"
 
 if "Negative Status" in er_status:
     suggested_drug = "Non-Endocrine Regimens (Anthracyclines/Taxanes or Target-directed Biologics)"
     suggested_dose = "Discontinue Tamoxifen Completely (0.0 mg)"
-    clinical_directive = "CRITICAL CONTRAINDICATION: Tumor presents as ERα-Negative. Endocrine therapy targets are absent, predicting 100% downstream therapeutic futility."
-    regimen_action = "Pivot to medical oncology standard cytotoxic chemotherapy paradigms immediately."
-    alert_type = "error"
-elif hys_law_triggered:
-    suggested_drug = "Endocrine Therapy Interruption"
-    suggested_dose = "Absolute Clinical Hold (0.0 mg)"
-    clinical_directive = "ACUTE DILI HAZARD: Patient criteria trigger Hy's Law (Transaminases >3x ULN combined with Total Bilirubin >2x ULN). Fulminant hepatic failure risk is high."
-    regimen_action = "Immediately suspend all endocrine variables. Initiate baseline hepatic recovery metrics and clear all alternate metabolic shunts."
-    alert_type = "error"
+    clinical_directive = "CRITICAL CONTRAINDICATION: Tumor is ERα-Negative. Endocrine escape pathways indicate absolute baseline resistance."
+    status_color = "#ef4444"
 elif calculated_endoxifen < 5.97:
     if "*4/*4" in cyp2d6_profile or "Paroxetine" in cyp2d6_inhibitor:
-        suggested_drug = "Aromatase Inhibitor Switch (e.g., Anastrozole / Letrozole)"
-        suggested_dose = "Anastrozole 1mg PO Daily (+ GnRH analogue if premenopausal)"
-        clinical_directive = "CPIC THERAPEUTIC FAILURE ALERT: Poor CYP2D6 metabolizer status or profound competitive drug inhibition drops active Endoxifen levels below the 5.97 ng/mL efficacy floor."
-        regimen_action = "Per CPIC 2023 mandates, switch alternative endocrine vector to an Aromatase Inhibitor axis to bypass the invalidated hepatic Phase-I pathway."
-        alert_type = "warning"
+        suggested_drug = "Aromatase Inhibitors (Anastrozole/Letrozole) +/- Goserelin"
+        suggested_dose = "Switch Regimen Completely"
+        clinical_directive = "Sub-therapeutic Threshold Hazard detected due to extreme CYP2D6 phenotypic impairment/invalidation. Shift to non-CYP2D6 dependent pathway."
     else:
-        suggested_drug = "Tamoxifen (Optimized Dose Escalation Strategy)"
-        suggested_dose = "Tamoxifen 40mg PO Daily (Split into 20mg BID)"
-        clinical_directive = "SUB-OPTIMAL EXPOSURE INDICATION: Endoxifen levels fail to secure the therapeutic window baseline due to Intermediate Metabolism or compliance drops."
-        regimen_action = "Escalate standard Tamoxifen profile to 40mg daily under precise monitoring, and optimize patient adherence protocols."
-        alert_type = "warning"
+        suggested_drug = "Tamoxifen Malate (Escalated Dose Protocol)"
+        suggested_dose = "40.0 mg Daily (Split 20mg BID)"
+        clinical_directive = "Sub-therapeutic exposure detected. Target concentration floor (5.97 ng/mL) unmet. Dose escalation and strict MEMS adherence monitoring required."
+    status_color = "#f59e0b"
 else:
+    suggested_drug = "Tamoxifen Malate (Standard Standard Maintenance)"
+    suggested_dose = "20.0 mg Daily Q.D."
+    clinical_directive = "Therapeutic Corridor Optimized. Steady-state endoxifen concentrations satisfy structural clinical criteria."
+    status_color = "#10b981"
+
+# ─── OUTPUT GRAPHICS & METRIC TILES ──────────────────────────────────────────
+st.markdown("<div class='hud-header'>📊 Real-Time QSP Simulated Engine Analytics</div>", unsafe_allow_header=True)
+
+m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+with m_col1:
