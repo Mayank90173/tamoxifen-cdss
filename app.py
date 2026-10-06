@@ -13,7 +13,6 @@ try:
 except ImportError:
     reportlab_available = False
 
-# Try importing Plotly for advanced visualization
 try:
     import plotly.graph_objects as go
     plotly_available = True
@@ -43,10 +42,10 @@ st.markdown("""
     .metric-card {
         background: rgba(15, 23, 42, 0.75); 
         border: 1px solid rgba(16, 185, 129, 0.2);
-        border-radius: 12px; padding: 1.5rem; text-align: center;
+        border-radius: 12px; padding: 1.2rem; text-align: center;
         box-shadow: 0 4px 15px rgba(0,0,0,0.4);
     }
-    .metric-val { font-size: 26px; font-weight: 800; color: #10b981; margin: 5px 0; }
+    .metric-val { font-size: 24px; font-weight: 800; color: #10b981; margin: 5px 0; }
     .metric-lbl { font-size: 11px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; }
     
     .hud-header {
@@ -132,16 +131,13 @@ with col3:
 gender_multiplier = 0.85 if gender == "Female" else 1.0
 calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_multiplier, 1)
 
-# Elimination rate constant based on renal clearance dynamics
 ke = 0.025 if calculated_crcl >= 60 else 0.042 if calculated_crcl >= 30 else 0.068
 
-# Translating your 13,001 patient abstract cohort data into metabolic flux thresholds
 if "*4/*4" in cyp2d6_profile: base_flux = 8.8  
 elif "*1/*10" in cyp2d6_profile: base_flux = 14.2
 elif "*1/*1" in cyp2d6_profile: base_flux = 22.3  
 else: base_flux = 32.5  
 
-# Phenoconversion via concomitant drug inhibitors (DDI Shunts)
 if "Paroxetine" in cyp2d6_inhibitor: 
     base_flux = 8.8  
 elif "Bupropion" in cyp2d6_inhibitor: 
@@ -166,7 +162,6 @@ chart_dataframe = pd.DataFrame({
     'CPIC Threshold Floor': [5.97] * 30
 })
 
-# ─── HIGH-CLINICAL STRATEGY DECISION ENGINE (CPIC / ASCO / ESMO) ────────────
 clinical_guideline_source = "CPIC Guidelines & ASCO/ESMO Endocrine Mandates"
 
 if "Negative Status" in er_status:
@@ -191,10 +186,14 @@ else:
     clinical_directive = "Therapeutic Corridor Maintained. Metabolic flux profile satisfies structural target concentration benchmarks."
     status_color = "#10b981"
 
-# ─── REAL-TIME ENGINE ANALYTICS TILES ────────────────────────────────────────
+# ─── REAL-TIME ENGINE ANALYTICS TILES (Indentation Safe Implementation) ──────
 st.markdown("<div class='hud-header'>📊 Real-Time QSP Simulated Engine Analytics</div>", unsafe_allow_html=True)
 
+# Fixed Grid Layout without nested unsafe blocks
 m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-with m_col1:
-    st.markdown(f"<div class='metric-card'><div class='metric-lbl'>Steady-State Endoxifen</div><div class='metric-val'>{calculated_endoxifen} ng/mL</div></div>", unsafe_allow_html=True)
-with m_col2:
+
+m_col1.markdown(f"<div class='metric-card'><div class='metric-lbl'>Steady-State Endoxifen</div><div class='metric-val'>{calculated_endoxifen} ng/mL</div></div>", unsafe_allow_html=True)
+m_col2.markdown(f"<div class='metric-card'><div class='metric-lbl'>Calculated CrCl Clearance</div><div class='metric-val'>{calculated_crcl} mL/min</div></div>", unsafe_allow_html=True)
+
+status_text = "HY'S LAW RISK" if hys_law_triggered else "STABLE PROFILE"
+color = "#ef4444" if hys_law_triggered else "#10b981"
