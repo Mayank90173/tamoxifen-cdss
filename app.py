@@ -135,9 +135,9 @@ calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_mult
 ke = 0.025 if calculated_crcl >= 60 else 0.042 if calculated_crcl >= 30 else 0.068
 
 # Base Flux mapping for Tamoxifen to Active Endoxifen (ng/mL) transformation based on clinical data
-if "*4/*4" in cyp2d6_profile: base_flux = 8.8  # Updated to align with your abstract data!
+if "*4/*4" in cyp2d6_profile: base_flux = 8.8  
 elif "*1/*10" in cyp2d6_profile: base_flux = 14.2
-elif "*1/*1" in cyp2d6_profile: base_flux = 22.3  # Updated to align with your abstract data!
+elif "*1/*1" in cyp2d6_profile: base_flux = 22.3  
 else: base_flux = 32.5  
 
 if "CYP2C19*2/*2" in cyp2c9_c19_profile: base_flux *= 0.80
@@ -188,7 +188,7 @@ else:
     status_color = "#10b981"
 
 # ─── OUTPUT GRAPHICS & METRIC TILES ──────────────────────────────────────────
-st.markdown("<div class='hud-header'>📊 Real-Time QSP Simulated Engine Analytics</div>", unsafe_allow_header=True)
+st.markdown("<div class='hud-header'>📊 Real-Time QSP Simulated Engine Analytics</div>", unsafe_allow_html=True)
 
 m_col1, m_col2, m_col3, m_col4 = st.columns(4)
 with m_col1:
