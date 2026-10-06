@@ -13,6 +13,13 @@ try:
 except ImportError:
     reportlab_available = False
 
+# Try importing Plotly for advanced visualization
+try:
+    import plotly.graph_objects as go
+    plotly_available = True
+except ImportError:
+    plotly_available = False
+
 # ─── STYLING & INTERFACE DESIGN (SWISS CYBERNETIC HUD AESTHETIC) ─────────────
 st.set_page_config(
     page_title="Zurich Translational Systems Pharmacology Command Center", 
@@ -39,18 +46,15 @@ st.markdown("""
         border-radius: 12px; padding: 1.5rem; text-align: center;
         box-shadow: 0 4px 15px rgba(0,0,0,0.4);
     }
-    .metric-val { font-size: 28px; font-weight: 800; color: #10b981; margin: 5px 0; }
-    .metric-lbl { font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; }
+    .metric-val { font-size: 26px; font-weight: 800; color: #10b981; margin: 5px 0; }
+    .metric-lbl { font-size: 11px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; }
     
     .hud-header {
-        border-left: 4px solid #10b981; padding-left: 10px; margin-top: 1.5rem; margin-bottom: 1rem;
-        font-weight: 700; color: #f8fafc; font-size: 18px;
+        border-left: 4px solid #10b981; padding-left: 10px; margin-top: 2rem; margin-bottom: 1rem;
+        font-weight: 700; color: #f8fafc; font-size: 20px;
     }
-    .alert-box {
-        padding: 1rem; border-radius: 8px; border-left: 5px solid #ef4444; background: rgba(239, 68, 68, 0.1); margin-bottom: 1rem;
-    }
-    .success-box {
-        padding: 1rem; border-radius: 8px; border-left: 5px solid #10b981; background: rgba(16, 185, 129, 0.1); margin-bottom: 1rem;
+    .pharm-card {
+        background: #0f172a; padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 1rem;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -65,9 +69,6 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-if 'patient_ledger' not in st.session_state:
-    st.session_state.patient_ledger = []
-
 # ─── DATA INPUT GRID SETUP ───────────────────────────────────────────────────
 col1, col2, col3 = st.columns(3)
 
@@ -79,8 +80,8 @@ with col1:
     gender = st.radio("Biological Configuration", ["Female", "Male"], horizontal=True)
     
     cyp2d6_profile = st.selectbox("CYP2D6 Genomic Architecture (CPIC Axis)", [
-        "*1xN/*1 (Ultra-rapid Metabolizer - Activity Score > 2.0)",
         "*1/*1 (Normal Metabolizer - Baseline Metabolic Velocity)", 
+        "*1xN/*1 (Ultra-rapid Metabolizer - Activity Score > 2.0)",
         "*1/*10 (Intermediate Metabolizer - Impaired Flux Spectrum)", 
         "*4/*4 (Null Allele - Poor Metabolizer - Total Phenoconversion)"
     ])
@@ -131,64 +132,65 @@ with col3:
 gender_multiplier = 0.85 if gender == "Female" else 1.0
 calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_multiplier, 1)
 
-# Clearance Constant calculation based on Renal Profile
+# Elimination rate constant based on renal clearance dynamics
 ke = 0.025 if calculated_crcl >= 60 else 0.042 if calculated_crcl >= 30 else 0.068
 
-# Base Flux mapping for Tamoxifen to Active Endoxifen (ng/mL) transformation based on clinical data
-if "*4/*4" in cyp2d6_profile: base_flux = 8.8  
+# Translating your 13,001 patient abstract cohort data into metabolic flux thresholds
+if "*4/*4" in cyp2d6_profile: base_flux = 8.8  # Poor Metabolizer Mean Concentration
 elif "*1/*10" in cyp2d6_profile: base_flux = 14.2
-elif "*1/*1" in cyp2d6_profile: base_flux = 22.3  
-else: base_flux = 32.5  
+elif "*1/*1" in cyp2d6_profile: base_flux = 22.3  # Extensive Metabolizer Mean Concentration
+else: base_flux = 32.5  # Ultra-rapid profile
 
-if "CYP2C19*2/*2" in cyp2c9_c19_profile: base_flux *= 0.80
-if "SULT1A1 Deletion" in sult1a1_cnv: base_flux *= 0.70
-elif "SULT1A1 Amplification" in sult1a1_cnv: base_flux *= 1.20
+# Phenoconversion via concomitant drug inhibitors (DDI Shunts)
+if "Paroxetine" in cyp2d6_inhibitor: 
+    base_flux = 8.8  # Strong inhibitor switches EM to PM phenotype
+elif "Bupropion" in cyp2d6_inhibitor: 
+    base_flux *= 0.40
+elif "Sertraline" in cyp2d6_inhibitor: 
+    base_flux *= 0.65
 
-if "Paroxetine" in cyp2d6_inhibitor: base_flux *= 0.12  
-elif "Bupropion" in cyp2d6_inhibitor: base_flux *= 0.28
-elif "Sertraline" in cyp2d6_inhibitor: base_flux *= 0.60
-if "Rifampicin" in cyp3a4_modulator: base_flux *= 0.40  
-elif "Ketoconazole" in cyp3a4_modulator: base_flux *= 1.30
-
-if "Non-Alcoholic Fatty Liver Disease" in comorbidities: base_flux *= 0.75
-hys_law_triggered = (serum_ast > 120 or serum_alt > 120) and (total_bilirubin > 2.0)
-if hys_law_triggered: base_flux *= 0.30
+if "CYP2C19*2/*2" in cyp2c9_c19_profile: base_flux *= 0.85
+if "SULT1A1 Deletion" in sult1a1_cnv: base_flux *= 0.75
 
 calculated_endoxifen = round(base_flux * compliance, 2)
 time_axis = list(range(1, 31))
 kinetics_curve = [round(calculated_endoxifen * (1 - np.exp(-ke * t)), 2) for t in time_axis]
 
 chart_dataframe = pd.DataFrame({
-    'Active Endoxifen Level (ng/mL)': kinetics_curve,
-    'CPIC Efficacy Threshold Floor': [5.97] * 30
-}, index=time_axis)
+    'Day': time_axis,
+    'Simulated Endoxifen': kinetics_curve,
+    'CPIC Threshold Floor': [5.97] * 30
+})
 
 # ─── HIGH-CLINICAL STRATEGY DECISION ENGINE (CPIC / ASCO / ESMO) ────────────
 clinical_guideline_source = "CPIC Guidelines & ASCO/ESMO Endocrine Mandates"
 
 if "Negative Status" in er_status:
-    suggested_drug = "Non-Endocrine Regimens (Anthracyclines/Taxanes or Target-directed Biologics)"
-    suggested_dose = "Discontinue Tamoxifen Completely (0.0 mg)"
-    clinical_directive = "CRITICAL CONTRAINDICATION: Tumor is ERα-Negative. Endocrine escape pathways indicate absolute baseline resistance."
+    suggested_drug = "Non-Endocrine Alternative Regimens (Chemotherapy/Biologics)"
+    suggested_dose = "Discontinue Tamoxifen (0.0 mg)"
+    clinical_directive = "CRITICAL CONTRAINDICATION: Tumor presents as ERα-Negative. Tamoxifen action relies on nuclear receptor tracking; absolute resistance pathways active."
     status_color = "#ef4444"
 elif calculated_endoxifen < 5.97:
     if "*4/*4" in cyp2d6_profile or "Paroxetine" in cyp2d6_inhibitor:
-        suggested_drug = "Aromatase Inhibitors (Anastrozole/Letrozole) +/- Goserelin"
-        suggested_dose = "Switch Regimen Completely"
-        clinical_directive = "Sub-therapeutic Threshold Hazard detected due to extreme CYP2D6 phenotypic impairment/invalidation. Shift to non-CYP2D6 dependent pathway."
+        suggested_drug = "Aromatase Inhibitor (Anastrozole/Letrozole/Exemestane)"
+        suggested_dose = "Switch to Standard AI Protocol (+ LHRH Agonist if premenopausal)"
+        clinical_directive = "Genomic/DDI Phenoconversion Obstruction. Active metabolic pathways cannot reach therapeutic corridor. Complete therapeutic class rotation required."
+        status_color = "#ef4444"
     else:
-        suggested_drug = "Tamoxifen Malate (Escalated Dose Protocol)"
-        suggested_dose = "40.0 mg Daily (Split 20mg BID)"
-        clinical_directive = "Sub-therapeutic exposure detected. Target concentration floor (5.97 ng/mL) unmet. Dose escalation and strict MEMS adherence monitoring required."
-    status_color = "#f59e0b"
+        suggested_drug = "Tamoxifen Malate (Dose Escalation Protocol)"
+        suggested_dose = "40.0 mg Daily Maintenance (Split as 20mg BID)"
+        clinical_directive = "Sub-therapeutic TDM Concentration Window (<5.97 ng/mL). CPIC clinical recommendation indicates dose escalation to double baseline under precise TDM tracking."
+        status_color = "#f59e0b"
 else:
-    suggested_drug = "Tamoxifen Malate (Standard Standard Maintenance)"
-    suggested_dose = "20.0 mg Daily Q.D."
-    clinical_directive = "Therapeutic Corridor Optimized. Steady-state endoxifen concentrations satisfy structural clinical criteria."
+    suggested_drug = "Tamoxifen Malate (Standard Adjuvant Protocol)"
+    suggested_dose = "20.0 mg Daily Oral Q.D."
+    clinical_directive = "Therapeutic Corridor Maintained. Metabolic flux profile satisfies structural target concentration benchmarks."
     status_color = "#10b981"
 
-# ─── OUTPUT GRAPHICS & METRIC TILES ──────────────────────────────────────────
+# ─── REAL-TIME ENGINE ANALYTICS TILES ────────────────────────────────────────
 st.markdown("<div class='hud-header'>📊 Real-Time QSP Simulated Engine Analytics</div>", unsafe_allow_html=True)
 
 m_col1, m_col2, m_col3, m_col4 = st.columns(4)
 with m_col1:
+    st.markdown(f"<div class='metric-card'><div class='metric-lbl'>Steady-State Endoxifen</div><div class='metric-val'>{calculated_endoxifen} ng/mL</div></div>", unsafe_allow_html=True)
+with m_col2:
