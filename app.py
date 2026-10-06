@@ -136,14 +136,14 @@ calculated_crcl = round(((140 - age) * weight) / (72 * creatinine) * gender_mult
 ke = 0.025 if calculated_crcl >= 60 else 0.042 if calculated_crcl >= 30 else 0.068
 
 # Translating your 13,001 patient abstract cohort data into metabolic flux thresholds
-if "*4/*4" in cyp2d6_profile: base_flux = 8.8  # Poor Metabolizer Mean Concentration
+if "*4/*4" in cyp2d6_profile: base_flux = 8.8  
 elif "*1/*10" in cyp2d6_profile: base_flux = 14.2
-elif "*1/*1" in cyp2d6_profile: base_flux = 22.3  # Extensive Metabolizer Mean Concentration
-else: base_flux = 32.5  # Ultra-rapid profile
+elif "*1/*1" in cyp2d6_profile: base_flux = 22.3  
+else: base_flux = 32.5  
 
 # Phenoconversion via concomitant drug inhibitors (DDI Shunts)
 if "Paroxetine" in cyp2d6_inhibitor: 
-    base_flux = 8.8  # Strong inhibitor switches EM to PM phenotype
+    base_flux = 8.8  
 elif "Bupropion" in cyp2d6_inhibitor: 
     base_flux *= 0.40
 elif "Sertraline" in cyp2d6_inhibitor: 
@@ -151,6 +151,10 @@ elif "Sertraline" in cyp2d6_inhibitor:
 
 if "CYP2C19*2/*2" in cyp2c9_c19_profile: base_flux *= 0.85
 if "SULT1A1 Deletion" in sult1a1_cnv: base_flux *= 0.75
+
+if "Non-Alcoholic Fatty Liver Disease" in comorbidities: base_flux *= 0.75
+hys_law_triggered = (serum_ast > 120 or serum_alt > 120) and (total_bilirubin > 2.0)
+if hys_law_triggered: base_flux *= 0.30
 
 calculated_endoxifen = round(base_flux * compliance, 2)
 time_axis = list(range(1, 31))
