@@ -197,3 +197,15 @@ m_col2.markdown(f"<div class='metric-card'><div class='metric-lbl'>Calculated Cr
 
 status_text = "HY'S LAW RISK" if hys_law_triggered else "STABLE PROFILE"
 color = "#ef4444" if hys_law_triggered else "#10b981"
+
+# ─── OFFICIAL COHORT SOURCE LINK BOX ─────────────────────────────────────────
+st.markdown("<div class='hud-header'>🔗 Verified Meta-Analysis Source Context</div>", unsafe_allow_html=True)
+st.markdown("""
+    <div style="background-color: #ffffff; padding: 1rem; border-radius: 10px; border: 1px solid #e2e8f0; font-size:13px;">
+        📌 <b>Data Validation Checkpoint:</b> This predictive framework is strictly benchmarked against the 
+        global clinical cohort analysis consisting of <b>13,001 patients across 29 published studies</b>. 
+        You can audit the peer-reviewed pharmacokinetic distribution metrics on the official 
+        <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7882715/" target="_blank" style="color:#0d9488; font-weight:bold; text-decoration:none;">NCBI PMC Portal (Hwang et al.)</a>.
+    </div>
+""", unsafe_allow_html=True)
+
