@@ -174,4 +174,3 @@ else:
             guideline_tags = ["ESMO Guidelines", "ASCO Primary Adjuvant Protocols"]
 
 # ─── REAL-TIME VISUALIZATIONS SECTION (RIGHT COLUMNS DISPLAY) ─────────────────
-with col2:
