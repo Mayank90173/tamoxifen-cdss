@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
 
-# ─── THE CLINICAL CORE INTERFACE DESIGN (SWISS MEDICAL SURGICAL HUD) ──────────
+# ─── INTERFACE CONFIGURATION & SWISS DARK HUD SURGICAL THEME ──────────────────
 st.set_page_config(
     page_title="OncoPGx Core Platform v5.0",
     layout="wide",
@@ -49,15 +49,15 @@ st.markdown("""
 
 st.markdown("""
     <div class="innovation-banner">
-        <span class="system-badge">✦ TRANSLATIONAL ECOSYSTEM // ESTIC 2026 ARCHITECTURE</span>
-        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 OncoPGx India v5.0: Autonomous Precision Endocrinology Platform</h1>
+        <span class="system-badge">✦ TRANSLATIONAL ECOSPEED // PHARMACOGENOMIC SIMULATOR v5.0</span>
+        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 OncoPGx India v5.0: Full-Fledged Precision Oncology Architecture</h1>
         <p style='color: #94a3b8 !important; margin: 5px 0 0 0; font-size:13px; font-family: monospace;'>
             Integrated Real-Time PK Graph • Multi-Guideline Ingestion (CPIC/ASCO/ESMO) • Independent Investigator Framework: Mayank Virmani
         </p>
     </div>
 """, unsafe_allow_html=True)
 
-# ─── HIGH-DENSITY INPUT REGISTRATION GRID ─────────────────────────────────────
+# ─── HIGH-DENSITY INPUT REGISTRATION GRID (TWO COLUMN WORKSPACE) ──────────────
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
@@ -106,7 +106,7 @@ k_e_base = 0.022 if computed_crcl >= 60 else 0.040 if computed_crcl >= 30 else 0
 if "Poor" in cyp2d6_pheno:
     metabolic_velocity = 8.8
 elif "Intermediate" in cyp2d6_pheno:
-    metabolic_velocity = 14.2 
+    metabolic_velocity = 14.2 # South Asian intermediate signature marker
 elif "Ultra-rapid" in cyp2d6_pheno:
     metabolic_velocity = 31.8
 else:
