@@ -2,40 +2,46 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from datetime import datetime
 
-# ─── THE CLINICAL HUB CONFIGURATION & DARK HUD AESTHETIC ──────────────────────
+# ─── THE CLINICAL CORE INTERFACE DESIGN (SWISS MEDICAL SURGICAL HUD) ──────────
 st.set_page_config(
-    page_title="OncoPGx Core Engine v3.0",
+    page_title="OncoPGx Core Platform v4.0",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 st.markdown("""
     <style>
-    .stApp { background-color: #040610; color: #e2e8f0; }
+    .stApp { background-color: #02040a; color: #e2e8f0; }
     h1, h2, h3, h4, p, span, label, div { font-family: 'Inter', system-ui, sans-serif; }
     
     .innovation-banner {
-        background: linear-gradient(135deg, #022329 0%, #050b14 60%, #1e1145 100%);
+        background: linear-gradient(135deg, #012022 0%, #030712 60%, #150c33 100%);
         border-radius: 16px; padding: 2rem; position: relative;
-        border: 1px solid rgba(16, 185, 129, 0.35);
-        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.75); margin-bottom: 2rem;
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.8); margin-bottom: 2rem;
     }
     .hud-header {
         border-left: 4px solid #00f2fe; padding-left: 12px; margin-top: 1.8rem; margin-bottom: 1.2rem;
         font-weight: 700; color: #ffffff; font-size: 19px; letter-spacing: -0.5px;
     }
     .metric-panel {
-        background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(0, 242, 254, 0.2);
+        background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(0, 242, 254, 0.25);
         border-radius: 12px; padding: 1.2rem; text-align: center;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+        box-shadow: 0 4px 25px rgba(0,0,0,0.7);
     }
     .metric-val { font-size: 26px; font-weight: 900; color: #00f2fe; margin: 4px 0; font-family: monospace; }
     .metric-lbl { font-size: 11px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; font-weight: 600; }
     
     .directive-card {
-        background: rgba(30, 41, 59, 0.4); padding: 1.5rem; border-radius: 14px; 
-        border: 1px solid rgba(255,255,255,0.06); margin-top: 1rem;
+        background: rgba(15, 23, 42, 0.6); padding: 1.8rem; border-radius: 14px; 
+        border: 1px solid rgba(255,255,255,0.08); margin-top: 1rem; line-height: 1.6;
+    }
+    .report-block {
+        background: #ffffff; color: #1e293b; padding: 2.5rem; border-radius: 8px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-family: 'Courier New', Courier, monospace;
+        border-top: 10px solid #0f172a; margin-top: 1.5rem;
     }
     .system-badge { font-size: 10px; font-family: monospace; text-transform: uppercase; letter-spacing: 2px; color: #00f2fe; font-weight: bold; }
     </style>
@@ -43,10 +49,10 @@ st.markdown("""
 
 st.markdown("""
     <div class="innovation-banner">
-        <span class="system-badge">✦ TRANSLATIONAL BIOINFORMATICS PIPELINE // INDEPENDENT INVESTIGATOR INITIATIVE</span>
-        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 OncoPGx India v3.0: High-Fidelity Systems Pharmacology Platform</h1>
+        <span class="system-badge">✦ TRANSLATIONAL ECOSYSTEM // PHARMACOGENOMIC DECISION ENGINE v4.0</span>
+        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 OncoPGx India v4.0: Autonomous Precision Endocrinology Platform</h1>
         <p style='color: #94a3b8 !important; margin: 5px 0 0 0; font-size:13px; font-family: monospace;'>
-            Multi-Compartment Pharmacokinetic Simulator & Genotype-Guided Decision Support System • Developed for ESTIC 2026 (Bharat Mandapam)
+            Multi-Guideline Ingestion (CPIC / ASCO / ESMO) • Real-Time Automated Report Compiler • Independent Investigator Framework: Mayank Virmani
         </p>
     </div>
 """, unsafe_allow_html=True)
@@ -55,29 +61,24 @@ st.markdown("""
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
-    st.markdown("<div class='hud-header'>📋 1. Patient Demographics & Systemic Biometrics</div>", unsafe_allow_html=True)
-    pt_id = st.text_input("Patient Global System Identifier", "IND-MH-2026-889A")
-    age = st.slider("Chronological Age Axis (Years)", 18, 95, 52)
-    weight = st.slider("Total Body Mass Parameter (kg)", 40, 140, 62)
+    st.markdown("<div class='hud-header'>📋 1. Patient Biometrics & Organ Status</div>", unsafe_allow_html=True)
+    pt_id = st.text_input("Patient Global System Identifier Hash", "IND-MOHALI-2026-X99")
+    age = st.slider("Chronological Age Axis (Years)", 18, 95, 48)
+    weight = st.slider("Total Body Mass Parameter (kg)", 40, 140, 65)
     gender = st.radio("Biological Configuration Core", ["Female", "Male"], horizontal=True)
-    creatinine = st.number_input("Serum Creatinine Clear Baseline (mg/dL)", min_value=0.3, max_value=8.0, value=0.90, step=0.05)
+    creatinine = st.number_input("Serum Creatinine Clear Baseline (mg/dL)", min_value=0.3, max_value=8.0, value=0.85, step=0.05)
+    menopausal_status = st.selectbox("Menopausal Physiological Axis", ["Premenopausal Status", "Postmenopausal Status"])
     
-    st.markdown("<div class='hud-header'>🧬 2. Multi-Omic Architecture & Receptor Stratification</div>", unsafe_allow_html=True)
-    cyp2d6_pheno = st.selectbox("CYP2D6 Functional Phenotype (CPIC Mapping Axis)", [
+    st.markdown("<div class='hud-header'>🧬 2. Multi-Omic & Tumor Pathology Parameters</div>", unsafe_allow_html=True)
+    cyp2d6_pheno = st.selectbox("CYP2D6 Functional Phenotype (CPIC Core Mapping)", [
         "Normal Metabolizer (NM) [e.g., *1/*1, *1/*2 Baseline]",
         "Intermediate Metabolizer (IM) [High Prevalence South Asian *10 Axis]",
         "Poor Metabolizer (PM) [Null Alleles *4/*4, *5/*5 Total Loss]",
         "Ultra-rapid Metabolizer (UM) [Duplicated Functional Shunts]"
     ])
-    cyp2c19_shunt = st.selectbox("CYP2C19 Shunt Clearance Vector", [
-        "Extensive Turnover Baseline (*1/*1)",
-        "Impaired Flux Variant (*2/*2 Poor Metabolizer Shunt)"
-    ])
-    sult1a1_sulfation = st.selectbox("SULT1A1 Phase II Conjugation Capacity", [
-        "Standard Copy Profile (2 Functional Copies)",
-        "Deletion Variant Variant (Impaired Active Bioavailability)"
-    ])
     er_status = st.radio("Nuclear Estrogen Receptor Expression (ERα)", ["Positive Expression Status", "Negative Expression Status"], horizontal=True)
+    nodal_status = st.selectbox("Lymph Node Pathological Involvement", ["Node-Negative (Low Core Risk)", "Node-Positive (High Risk / Extended Recurrence Matrix)"])
+    tumor_size = st.slider("Primary Tumor Diameter Dimensions (mm)", 1, 100, 25)
 
     st.markdown("<div class='hud-header'>💊 3. Integrated Xenobiotic Interferences (Concomitant DDIs)</div>", unsafe_allow_html=True)
     cyp2d6_inhib = st.selectbox("Co-administered Serotonergic Modulators (SSRI Core)", [
@@ -93,88 +94,82 @@ with col1:
     
     compliance = st.slider("Patient Adherence Index Verification (MEMS %)", 10, 100, 100) / 100.0
 
-# ─── ADVANCED PHARMACOKINETIC & MATHEMATICAL VECTOR LOGIC ENGINE ──────────────
-# 1. Exact Renal Clearance Engine (Cockcroft-Gault Analytical Loop)
+# ─── REAL-TIME QUANTITATIVE SYSTEMS PHARMACOLOGY LOGIC ENGINE ─────────────────
+# 1. Kidney Function Metrics (Cockcroft-Gault Equation)
 g_mult = 0.85 if gender == "Female" else 1.0
 computed_crcl = round(((140 - age) * weight) / (72 * creatinine) * g_mult, 1)
-
-# 2. Pharmacokinetic Kinetic Rate Parameter Generation
-# Central volume distribution and clearance modeling
-v_d = 20.0 * (weight / 70.0) 
-k_a = 0.85 # Absorption constant for oral tamoxifen malate
-
-# Base Clearance Rate constant derived inversely with renal clearance tracking
 k_e_base = 0.022 if computed_crcl >= 60 else 0.040 if computed_crcl >= 30 else 0.065
 
-# 3. Micro-Compartment Hepatic Flux Processing (Aligned with Hwang et al. 13,001 Patient Cohort)
+# 2. Hepatic Metabolic Flux Processing (Aligned with Hwang et al. 13,001 Patient Cohort)
 if "Poor" in cyp2d6_pheno:
     metabolic_velocity = 8.8
 elif "Intermediate" in cyp2d6_pheno:
-    metabolic_velocity = 14.2 # South Asian signature intermediate marker
+    metabolic_velocity = 14.2 # South Asian intermediate signature marker
 elif "Ultra-rapid" in cyp2d6_pheno:
     metabolic_velocity = 31.8
 else:
-    metabolic_velocity = 22.3 # Normal EM benchmark
+    metabolic_velocity = 22.3 
 
-# 4. Phenoconversion Optimization Matrix Calculations
-ddi_penalty = 1.0
+# 3. Phenoconversion & Secondary Drug Interactions Loop
+is_phenoconverted = False
 if "Paroxetine" in cyp2d6_inhib:
-    metabolic_velocity = 8.8 # Absolute Phenoconversion to Poor Metabolizer
+    metabolic_velocity = 8.8 
+    is_phenoconverted = True
 elif "Sertraline" in cyp2d6_inhib:
-    ddi_penalty *= 0.62
+    metabolic_velocity *= 0.62
 
-if "Impaired" in cyp2c19_shunt:
-    ddi_penalty *= 0.88
-if "Deletion" in sult1a1_sulfation:
-    ddi_penalty *= 0.78
-    
 if "Rifampicin" in cyp3a4_mod:
-    ddi_penalty *= 0.48 # Severe operational reduction due to accelerated alternative clearance shunts
+    metabolic_velocity *= 0.48 
 elif "Ketoconazole" in cyp3a4_mod:
-    ddi_penalty *= 1.25 # Clearance blockade raising standard accumulation thresholds
+    metabolic_velocity *= 1.20
 
-final_predicted_steady_state = round(metabolic_velocity * ddi_penalty * compliance, 2)
+final_predicted_steady_state = round(metabolic_velocity * compliance, 2)
 
-# ─── REAL-TIME GRAPHICAL HUB PLOTTING ─────────────────────────────────────────
-with col2:
-    st.markdown("<div class='hud-header'>📊 Real-Time Multi-Organ Analytical Dashboard</div>", unsafe_allow_html=True)
-    m1, m2, m3 = st.columns(3)
-    
-    m1.markdown(f"<div class='metric-panel'><div class='metric-lbl'>Predictive Endoxifen</div><div class='metric-val'>{final_predicted_steady_state} ng/mL</div></div>", unsafe_allow_html=True)
-    
-    ren_color = "#ef4444" if computed_crcl < 30 else "#f59e0b" if computed_crcl < 60 else "#10b981"
-    m2.markdown(f"<div class='metric-panel'><div class='metric-lbl'>Renal GFR Matrix (CrCl)</div><div class='metric-val' style='color:{ren_color};'>{computed_crcl} mL/min</div></div>", unsafe_allow_html=True)
-    
-    window_lbl = "🚨 SUB-TARGET" if final_predicted_steady_state < 5.97 else "🟢 THERAPEUTIC"
-    window_color = "#ef4444" if final_predicted_steady_state < 5.97 else "#10b981"
-    m3.markdown(f"<div class='metric-panel'><div class='metric-lbl'>Therapeutic State</div><div class='metric-val' style='color:{window_color}; font-size:18px;'>{window_lbl}</div></div>", unsafe_allow_html=True)
+# 4. Multi-Guideline Adaptive Clinical Decision Engine (CPIC v2.0 / ASCO / ESMO)
+guideline_tags = []
+primary_recommendation = ""
+alternative_options = ""
+duration_protocol = ""
+dosage_regimen = ""
 
-    # Multi-Compartment Accumulation Plotly Chart
-    st.markdown("<div class='hud-header'>📈 High-Fidelity Compartmental Plasma Kinetic Simulation (30-Day Forecast)</div>", unsafe_allow_html=True)
-    days_timeline = np.arange(1, 31)
+if "Negative" in er_status:
+    primary_recommendation = "DISCONTINUE ENDOCRINE THERAPY TRAJECTORY"
+    dosage_regimen = "0.0 mg Oral Daily"
+    alternative_options = "Cytotoxic Chemotherapy (Anthracyclines/Taxanes) + Targeted Biologics based on HER2/PD-L1 Status."
+    duration_protocol = "Immediate Termination of Endocrine Modeling"
+    guideline_tags = ["ASCO 2024 Criteria", "ESMO Endocrine Guidelines Section 4.1"]
+else:
+    # Baseline Duration Allocation based on Nodal and Tumor Staging Metrics
+    is_high_risk = "Node-Positive" in nodal_status or tumor_size > 50
+    base_duration = "5 Years Standard Adjuvant Protocol" if not is_high_risk else "Extended 10 Years Protocol (ATLAS & aTTOM Clinical Trials Alignment)"
     
-    # Mathematical Multi-Compartment Accumulation Formulation
-    pk_curve = [round(final_predicted_steady_state * (1 - np.exp(-k_e_base * t)), 2) for t in days_timeline]
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=days_timeline, y=pk_curve, mode='lines+markers', name='Predictive Plasma Steady-State', line=dict(color='#00f2fe', width=3.5)))
-    fig.add_trace(go.Scatter(x=days_timeline, y=[5.97]*30, mode='lines', name='CPIC Target Floor Target (5.97 ng/mL)', line=dict(color='#ef4444', dash='dot', width=2)))
-    
-    fig.update_layout(
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=10, r=10, t=10, b=10), height=300,
-        font=dict(color='#94a3b8'),
-        xaxis=dict(title='Simulation Timeline (Days)', gridcolor='rgba(255,255,255,0.05)', showgrid=True),
-        yaxis=dict(title='Endoxifen Concentration (ng/mL)', gridcolor='rgba(255,255,255,0.05)', showgrid=True),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-# ─── REAL-TIME CLINICAL MANAGEMENT DIRECTIVES PANEL ───────────────────────────
-st.markdown("<div class='hud-header'>⚡ Automated Adaptive Precision Management Framework</div>", unsafe_allow_html=True)
-
-with st.container():
-    st.markdown("<div class='directive-card'>", unsafe_allow_html=True)
-    
-    if "Negative" in er_status:
-        st.error("❌ CRITICAL MOLECULAR TARGET MISMATCH: ERα-Negative Phenotype")
+    if "Premenopausal" in menopausal_status:
+        if "Poor" in cyp2d6_pheno or is_phenoconverted:
+            primary_recommendation = "Ovarian Function Suppression (OFS) + Aromatase Inhibitor (AI) Class Rotation"
+            dosage_regimen = "Letrozole 2.5 mg Oral QD + Goserelin (LHRH Agonist) 3.6 mg Subcutaneous Depot Every 28 Days"
+            alternative_options = "Tamoxifen Dose Escalation to 40 mg QD (Split as 20mg BID) if AI is clinically contraindicated due to bone pathology."
+            duration_protocol = f"{base_duration} (OFS duration strictly maintained for minimum 5 years)."
+            guideline_tags = ["CPIC 2023 Tamoxifen Update", "ASCO/SOFT/TEXT Trial Clinical Guidelines"]
+        elif "Intermediate" in cyp2d6_pheno:
+            primary_recommendation = "Tamoxifen Standard Protocol with Preemptive Serum TDM Monitoring Matrix"
+            dosage_regimen = "Tamoxifen Malate 20 mg Oral QD"
+            alternative_options = "Dose-Escalation to 40 mg Oral QD (Split 20mg BID) if subsequent 90-day TDM tracking reflects values <5.97 ng/mL."
+            duration_protocol = base_duration
+            guideline_tags = ["CPIC 2023 Guideline Axis", "DPWG (Dutch Pharmacogenetics Working Group) Consensus"]
+        else:
+            primary_recommendation = "Standard Adjuvant Tamoxifen Monotherapy Corridor Approved"
+            dosage_regimen = "Tamoxifen Malate 20 mg Oral QD"
+            alternative_options = "Add OFS (Goserelin Depot) if dynamic staging drops or nodal recurrence markers scale up."
+            duration_protocol = base_duration
+            guideline_tags = ["ASCO Endocrine Mandate", "ESMO Core Biomarker Matrix"]
+            
+    else: # Postmenopausal Settings
+        if "Poor" in cyp2d6_pheno or is_phenoconverted or is_high_risk:
+            primary_recommendation = "Primary Aromatase Inhibitor (AI) Monotherapy Deployment"
+            dosage_regimen = "Letrozole 2.5 mg Oral QD OR Anastrozole 1 mg Oral QD"
+            alternative_options = "Exemestane (Steroidal AI) 25 mg Oral QD if arthralgia or muscular hypersensitivity profile triggers on letrozole."
+            duration_protocol = "5 Years Standard AI. If Node-Positive, execute sequential switch: 5 Years AI followed by 5 Years Tamoxifen (Total 10 Years Profile)."
+            guideline_tags = ["ASCO Postmenopausal Consensus", "ESMO Early Breast Cancer Guidelines"]
+        else:
+            primary_recommendation = "Aromatase Inhibitor Primary Corridor Approved"
+            dosage_regimen = "Anastrozole 1 mg Oral QD"
