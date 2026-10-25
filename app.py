@@ -435,7 +435,7 @@ elif page == "PK/PD & AUC":
 
         if valid:
             # Trapezoidal observed AUC over the entered sampling interval.
-            auc = float(np.trapz(conc, times))
+            auc = float(np.sum(     (conc[:-1] + conc[1:]) * 0.5 * np.diff(times) ))
             cmax = float(np.max(conc))
             tmax = float(times[np.argmax(conc)])
             tmin, tmax_interval = float(times.min()), float(times.max())
