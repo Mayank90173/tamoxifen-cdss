@@ -1,550 +1,1043 @@
+# ============================================================
+# OncoPGx | Tamoxifen Clinical Decision Support Research Prototype
+# Research use only — NOT for autonomous clinical decisions.
+# ============================================================
+
 import streamlit as st
-import pandas as pd
-import numpy as np
 import sqlite3
 import json
 import html
 from datetime import datetime, date
 from pathlib import Path
 
-try:
-    import plotly.graph_objects as go
-    import plotly.express as px
-    PLOTLY_OK = True
-except ImportError:
-    PLOTLY_OK = False
+# ----------------------- APP CONFIG --------------------------
 
 st.set_page_config(
     page_title="OncoPGx | Tamoxifen CDSS",
     page_icon="🧬",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded"
 )
 
-DB_PATH = Path("oncopgx_records.sqlite3")
+APP_NAME = "OncoPGx"
+DB_PATH = Path("oncopgx_research.db")
 
-st.markdown("""
-<style>
-.stApp {
- background:
- radial-gradient(circle at 8% 2%, rgba(20,184,166,.13), transparent 28%),
- radial-gradient(circle at 92% 10%, rgba(59,130,246,.13), transparent 25%),
- linear-gradient(135deg,#07111f 0%,#0b1220 52%,#101827 100%);
- color:#edf4ff;
-}
-.block-container {padding-top:1.4rem;max-width:1500px}
-.hero {
- padding:1.6rem;border-radius:20px;margin-bottom:1rem;
- background:linear-gradient(120deg,rgba(13,148,136,.22),rgba(37,99,235,.17),rgba(99,102,241,.12));
- border:1px solid rgba(94,234,212,.25);
-}
-.kicker {color:#5eead4;text-transform:uppercase;letter-spacing:.15em;font-size:.75rem;font-weight:800}
-.panel {padding:1rem;border:1px solid rgba(148,163,184,.2);border-radius:14px;background:rgba(15,23,42,.72)}
-.notice {padding:1rem;border-left:4px solid #f59e0b;border-radius:8px;background:rgba(120,53,15,.2)}
-div[data-testid="stMetric"] {background:rgba(15,23,42,.7);border:1px solid rgba(148,163,184,.18);padding:.8rem;border-radius:12px}
-[data-testid="stSidebar"] {background:rgba(5,12,24,.96)}
-</style>
-""", unsafe_allow_html=True)
+# ----------------------- DESIGN ------------------------------
 
-st.markdown("""
-<div class="hero">
- <div class="kicker">Pharmacogenomics · Clinical pharmacology · Research prototype</div>
- <h1>🧬 OncoPGx — Tamoxifen Clinical Review</h1>
- <p>Patient-linked pharmacology, CYP2D6 interpretation, interaction review,
- safety monitoring and tumor-board reporting.</p>
-</div>
-<div class="notice"><b>Research-use only:</b> This prototype is not a validated clinical prediction model
-and does not prescribe treatment. Use de-identified/demo data only. Clinical decisions require
-the treating oncology team and current guidelines.</div>
-""", unsafe_allow_html=True)
-
-CPIC_URL = "https://cpicpgx.org/guidelines/guideline-for-cyp2d6-and-tamoxifen-therapy/"
-CPIC_PAPER = "https://pmc.ncbi.nlm.nih.gov/articles/PMC5931215/"
-
-# ----------------------------- DATABASE ---------------------------------------
-def db():
-    con = sqlite3.connect(DB_PATH, check_same_thread=False)
-    con.execute("""CREATE TABLE IF NOT EXISTS snapshots(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        patient_code TEXT, saved_at TEXT, data TEXT)""")
-    con.execute("""CREATE TABLE IF NOT EXISTS adverse_events(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        patient_code TEXT, event_date TEXT, event TEXT,
-        severity TEXT, serious TEXT, suspected_drug TEXT, notes TEXT)""")
-    con.execute("""CREATE TABLE IF NOT EXISTS followups(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        patient_code TEXT, visit_date TEXT, adherence REAL,
-        endoxifen REAL, toxicity TEXT, labs TEXT)""")
-    con.commit()
-    return con
-
-con = db()
-
-# --------------------------- CALCULATIONS -------------------------------------
-def egfr_ckdepi_2021(age, sex, scr):
-    """Adult CKD-EPI 2021 creatinine estimate; not for pediatric patients."""
-    if age < 18 or scr <= 0 or sex not in ("Female", "Male"):
-        return None
-    female = sex == "Female"
-    k = 0.7 if female else 0.9
-    alpha = -0.241 if female else -0.302
-    ratio = scr / k
-    sex_factor = 1.012 if female else 1.0
-    return 142 * min(ratio, 1)**alpha * max(ratio, 1)**(-1.2) * (0.9938**age) * sex_factor
-
-def crcl_cockcroft_gault(age, weight, scr, sex):
-    if age < 18 or scr <= 0 or sex not in ("Female", "Male"):
-        return None
-    value = ((140-age)*weight)/(72*scr)
-    return value*0.85 if sex == "Female" else value
-
-def pgx_guidance(phenotype):
-    if phenotype == "Poor metabolizer (PM)":
-        return ("CPIC guidance supports considering an alternative endocrine therapy that does not "
-                "depend on CYP2D6, when clinically appropriate. If an aromatase inhibitor is used "
-                "in a premenopausal patient, ovarian suppression may be required. A clinician may "
-                "consider 40 mg/day tamoxifen in selected cases when an alternative is unsuitable; "
-                "this is not an automatic dose instruction.")
-    if phenotype == "Intermediate metabolizer (IM)":
-        return ("Consider guideline-based endocrine alternatives in clinical context. Review CYP2D6 "
-                "inhibitors, menopausal status and the oncology plan with the treating team.")
-    if phenotype in ("Normal metabolizer (NM)", "Ultrarapid metabolizer (UM)"):
-        return ("CPIC generally supports standard tamoxifen dosing, commonly 20 mg/day, for these "
-                "phenotypes, subject to the indication, product label and treating team's plan.")
-    return "Phenotype is unknown or indeterminate. Obtain and interpret a valid laboratory report before phenotype-specific recommendations."
-
-def interaction_review(meds):
-    strong = {
-        "Paroxetine", "Fluoxetine", "Bupropion", "Quinidine"
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background:
+          radial-gradient(circle at 10% 10%, rgba(27,145,180,.13), transparent 30%),
+          radial-gradient(circle at 90% 20%, rgba(38,180,160,.12), transparent 25%),
+          linear-gradient(135deg, #f4f8fc 0%, #edf5f8 50%, #f5f8fc 100%);
     }
-    moderate = {"Duloxetine", "Terbinafine", "Sertraline"}
-    results = []
-    for med in meds:
-        if med in strong:
-            results.append((med, "High-priority review",
-                "Potentially important CYP2D6 inhibition may reduce endoxifen formation. Discuss suitable alternatives with the prescriber."))
-        elif med in moderate:
-            results.append((med, "Review",
-                "Potential CYP2D6 inhibition; clinical relevance varies. Review the full medication list with a pharmacist/prescriber."))
-        elif med == "Other medicine — review required":
-            results.append((med, "Unclassified",
-                "Exact medicine and regimen need review in a reliable interaction resource."))
-    return results
 
-# ------------------------------- SIDEBAR --------------------------------------
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #102b46 0%, #164d65 100%);
+    }
+
+    [data-testid="stSidebar"] * {
+        color: #f4fbff;
+    }
+
+    .hero {
+        padding: 28px;
+        border-radius: 22px;
+        color: white;
+        background: linear-gradient(115deg, #102b46 0%, #126782 58%, #14a89e 100%);
+        box-shadow: 0 12px 32px rgba(16,43,70,.18);
+        margin-bottom: 20px;
+    }
+
+    .hero h1 {
+        color: white;
+        font-size: 2.25rem;
+        margin-bottom: 5px;
+    }
+
+    .hero p {
+        color: #e2f8ff;
+        margin-bottom: 0;
+    }
+
+    .eyebrow {
+        font-size: .78rem;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: #bceef0;
+        font-weight: 700;
+    }
+
+    .panel {
+        padding: 18px;
+        border-radius: 16px;
+        border: 1px solid #dce8ef;
+        background: rgba(255,255,255,.88);
+        box-shadow: 0 5px 18px rgba(20,55,75,.055);
+        margin-bottom: 12px;
+    }
+
+    .metric-card {
+        background: white;
+        border: 1px solid #dbe8ef;
+        border-radius: 15px;
+        padding: 17px;
+        min-height: 105px;
+    }
+
+    .metric-label {
+        color: #60798a;
+        font-size: .85rem;
+        margin-bottom: 5px;
+    }
+
+    .metric-value {
+        color: #103b55;
+        font-size: 1.55rem;
+        font-weight: 750;
+    }
+
+    .small-note {
+        color: #617786;
+        font-size: .84rem;
+    }
+
+    .tag {
+        display: inline-block;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: #e1f5f4;
+        color: #087c78;
+        font-size: .78rem;
+        font-weight: 700;
+        margin: 2px;
+    }
+
+    div[data-testid="stTabs"] button {
+        font-weight: 650;
+    }
+
+    div.stButton > button {
+        border-radius: 10px;
+        font-weight: 650;
+        min-height: 2.7rem;
+    }
+
+    .disclaimer {
+        border-left: 5px solid #d59a27;
+        padding: 12px 16px;
+        background: #fff8e8;
+        color: #604814;
+        border-radius: 8px;
+        margin: 12px 0;
+    }
+
+    .dna {
+        font-size: 2.2rem;
+        margin-right: 12px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# ----------------------- DATABASE ---------------------------
+
+def init_db():
+    """Create local research database if it does not exist."""
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS patient_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                record_time TEXT NOT NULL,
+                patient_code TEXT NOT NULL,
+                record_json TEXT NOT NULL
+            )
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS adverse_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_time TEXT NOT NULL,
+                patient_code TEXT NOT NULL,
+                event_name TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                notes TEXT
+            )
+        """)
+
+        conn.commit()
+
+
+init_db()
+
+# ----------------------- HELPERS -----------------------------
+
+def metric_card(label, value, caption=""):
+    st.markdown(
+        f"""
+        <div class="metric-card">
+            <div class="metric-label">{html.escape(str(label))}</div>
+            <div class="metric-value">{html.escape(str(value))}</div>
+            <div class="small-note">{html.escape(str(caption))}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+def safe_float(value):
+    try:
+        if value is None or str(value).strip() == "":
+            return None
+        result = float(value)
+        return result
+    except (ValueError, TypeError):
+        return None
+
+
+def calculate_bmi(weight_kg, height_cm):
+    if weight_kg and height_cm and height_cm > 0:
+        height_m = height_cm / 100
+        return round(weight_kg / (height_m ** 2), 1)
+    return None
+
+
+def classify_cyp2d6_activity(score):
+    """
+    Simplified CYP2D6 activity-score interpretation.
+    Requires correct allele function, copy number and phasing
+    for a real clinical interpretation.
+    """
+    if score is None:
+        return "Unknown", "Insufficient information"
+
+    if score < 0:
+        return "Unknown", "Invalid activity score"
+
+    if score == 0:
+        return "Poor metabolizer", (
+            "Reduced CYP2D6 function. Review the CPIC guideline "
+            "and clinical context with an oncology clinician."
+        )
+
+    if score < 1.25:
+        return "Intermediate metabolizer", (
+            "Reduced CYP2D6 function may lower endoxifen exposure. "
+            "Review guideline-based endocrine options with the care team."
+        )
+
+    if score <= 2.25:
+        return "Normal metabolizer", (
+            "Expected normal CYP2D6 function, subject to genotype "
+            "quality and drug-interaction review."
+        )
+
+    return "Ultrarapid metabolizer", (
+        "Higher CYP2D6 activity score. Do not infer that a higher "
+        "tamoxifen dose is needed from this result alone."
+    )
+
+
+def check_cyp2d6_inhibitors(medication_text):
+    """
+    A small keyword screen for research demonstration only.
+    This is NOT a comprehensive interaction checker.
+    """
+    text = (medication_text or "").lower()
+
+    inhibitors = {
+        "paroxetine": "Strong CYP2D6 inhibitor",
+        "fluoxetine": "Strong CYP2D6 inhibitor",
+        "bupropion": "Strong CYP2D6 inhibitor",
+        "quinidine": "Strong CYP2D6 inhibitor",
+        "duloxetine": "Moderate CYP2D6 inhibitor",
+        "terbinafine": "CYP2D6 inhibition concern"
+    }
+
+    found = []
+    for drug, description in inhibitors.items():
+        if drug in text:
+            found.append((drug.title(), description))
+
+    return found
+
+
+def make_report(data):
+    lines = [
+        "# OncoPGx — Tamoxifen Research Summary",
+        "",
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        "",
+        "> Research-use-only summary. Not a prescription or a validated clinical prediction.",
+        "",
+        "## Patient / Research Record",
+        f"- Record code: {data.get('patient_code', 'Not entered')}",
+        f"- Age: {data.get('age', 'Not entered')}",
+        f"- Sex: {data.get('sex', 'Not entered')}",
+        f"- Indication: {data.get('indication', 'Not entered')}",
+        f"- Menopausal status: {data.get('menopausal_status', 'Not entered')}",
+        "",
+        "## Pharmacogenomics",
+        f"- CYP2D6 diplotype: {data.get('diplotype', 'Not entered')}",
+        f"- Activity score: {data.get('activity_score', 'Not entered')}",
+        f"- Phenotype: {data.get('phenotype', 'Unknown')}",
+        "",
+        "## Treatment Context",
+        f"- Tamoxifen dose recorded: {data.get('tamoxifen_dose', 'Not entered')}",
+        f"- Other medications: {data.get('medications', 'Not entered')}",
+        f"- Symptoms / toxicity: {data.get('symptoms', 'Not entered')}",
+        "",
+        "## Laboratory Context",
+        f"- ALT: {data.get('alt', 'Not entered')}",
+        f"- AST: {data.get('ast', 'Not entered')}",
+        f"- Bilirubin: {data.get('bilirubin', 'Not entered')}",
+        f"- Creatinine: {data.get('creatinine', 'Not entered')}",
+        "",
+        "## Clinical Review",
+        data.get("clinical_review", "No review note entered."),
+        "",
+        "## Limitations",
+        "- This prototype does not predict toxicity probability.",
+        "- CYP2D6 phenotype interpretation depends on the assay and allele translation.",
+        "- Drug interaction screening is incomplete.",
+        "- Treatment choice and dosing require qualified clinical review.",
+        "- Validate any model using appropriate clinical data before clinical use.",
+    ]
+    return "\n".join(lines)
+
+
+def save_patient_record(data):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO patient_records
+            (record_time, patient_code, record_json)
+            VALUES (?, ?, ?)
+            """,
+            (
+                datetime.now().isoformat(timespec="seconds"),
+                data.get("patient_code", "UNSPECIFIED"),
+                json.dumps(data, ensure_ascii=False)
+            )
+        )
+        conn.commit()
+
+
+# ----------------------- SESSION STATE -----------------------
+
+defaults = {
+    "patient_code": "PGX-001",
+    "age": 50,
+    "sex": "Female",
+    "indication": "ER-positive breast cancer",
+    "menopausal_status": "Unknown",
+    "diplotype": "*1/*1",
+    "activity_score": 2.0,
+    "tamoxifen_dose": 20.0,
+    "medications": "",
+    "symptoms": "",
+    "clinical_review": ""
+}
+
+for key, value in defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+# ----------------------- SIDEBAR -----------------------------
+
 with st.sidebar:
-    st.title("🗂️ Patient workspace")
-    st.caption("Use a study code only. Do not enter names, addresses or hospital IDs.")
-    patient_code = st.text_input("De-identified patient code", "DEMO-001")
+    st.markdown("# 🧬 OncoPGx")
+    st.markdown("**Precision Oncology Research Lab**")
     st.markdown("---")
-    st.markdown(f"[CPIC guideline]({CPIC_URL})")
-    st.markdown(f"[CPIC publication]({CPIC_PAPER})")
+
+    st.markdown("### Research module")
+    st.caption("Tamoxifen · CYP2D6 · Safety · CDSS")
+
+    st.markdown("---")
+    st.markdown("### Important")
+    st.warning(
+        "Research prototype only. Do not use it to independently "
+        "start, stop or change a patient's medication."
+    )
+
+    st.markdown("---")
+    st.caption("Version 2.0 · Research prototype")
+
+
+# ----------------------- HERO HEADER -------------------------
+
+st.markdown(
+    """
+    <div class="hero">
+        <div class="eyebrow">PRECISION ONCOLOGY • PHARMACOGENOMICS</div>
+        <h1>🧬 OncoPGx</h1>
+        <p>Tamoxifen Clinical Decision Support & Research Platform</p>
+        <p>Genotype interpretation · Medication review · Safety monitoring · Research workflow</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    """
+    <div class="disclaimer">
+    <b>Research-use-only notice:</b> This prototype is not a validated
+    medical device. It does not make autonomous treatment decisions,
+    prescribe medication, or calculate an individual's probability of
+    toxicity. Every interpretation must be reviewed by a qualified
+    oncology clinician or clinical pharmacologist.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# ----------------------- NAVIGATION --------------------------
 
 tabs = st.tabs([
-    "👤 Patient profile",
-    "🧪 Labs & PGx",
-    "💊 Treatment & interactions",
-    "📈 Pharmacology",
-    "🛡️ Safety / PV",
-    "🧾 Report",
-    "🗃️ Patient records",
+    "👤 Patient Profile",
+    "🧬 PGx & Labs",
+    "💊 Therapy Guidance",
+    "🛡️ Safety & PV",
+    "📊 Research Validation",
+    "📄 Tumor Board Report",
+    "🗂️ Records"
 ])
 
-# --------------------------- PATIENT PROFILE ----------------------------------
+# ======================= TAB 1 ===============================
+
 with tabs[0]:
-    st.subheader("Patient and cancer profile")
-    c1,c2,c3 = st.columns(3)
+    st.subheader("Patient / Research Profile")
+    st.write(
+        "Use a coded identifier rather than a patient's name or other "
+        "directly identifying information."
+    )
+
+    c1, c2 = st.columns(2)
 
     with c1:
-        age = st.number_input("Age (years)", 18, 110, 55, key="age")
-        sex = st.selectbox("Sex for calculation", ["Female","Male","Not specified"], key="sex")
-        menopausal = st.selectbox("Menopausal status", [
-            "Premenopausal","Perimenopausal / uncertain","Postmenopausal","Unknown"
-        ], key="menopausal")
-        height = st.number_input("Height (cm)", 100.0, 230.0, 160.0, key="height")
-        weight = st.number_input("Weight (kg)", 25.0, 250.0, 65.0, key="weight")
+        st.text_input("Research patient code", key="patient_code")
+        st.number_input("Age (years)", 18, 110, key="age")
+        st.selectbox(
+            "Sex",
+            ["Female", "Male", "Other / not recorded"],
+            key="sex"
+        )
+        st.selectbox(
+            "Menopausal status",
+            ["Unknown", "Premenopausal", "Perimenopausal", "Postmenopausal"],
+            key="menopausal_status"
+        )
 
     with c2:
-        subtype = st.selectbox("Cancer subtype", [
-            "Invasive ductal breast cancer","Invasive lobular breast cancer",
-            "Other / unspecified breast cancer","Other cancer / not applicable"
-        ], key="subtype")
-        er = st.selectbox("ER status", ["Positive","Negative","Unknown"], key="er")
-        pr = st.selectbox("PR status", ["Positive","Negative","Unknown"], key="pr")
-        her2 = st.selectbox("HER2 status", ["Positive","Negative","Equivocal / pending","Unknown"], key="her2")
-        stage = st.selectbox("Cancer stage", [
-            "Stage 0","Stage I","Stage II","Stage III","Stage IV","Unknown"
-        ], key="stage")
-
-    with c3:
-        mets = st.selectbox("Metastasis", [
-            "No known distant metastasis","Distant metastasis present","Unknown"
-        ], key="mets")
-        disease = st.selectbox("Current disease status", [
-            "New diagnosis / work-up","Active treatment","Adjuvant treatment",
-            "Neoadjuvant treatment","Recurrent/progressive disease",
-            "Stable disease","Remission / surveillance","Unknown"
-        ], key="disease")
-        treatment_status = st.selectbox("Tamoxifen status", [
-            "Not started","Currently taking","Previously stopped","Planned / under consideration"
-        ], key="treatment_status")
-        start_date = st.date_input("Treatment start date", date.today(), key="start_date")
-
-    clinical_notes = st.text_area("Clinical notes (de-identified)", key="clinical_notes")
-
-    if er == "Negative":
-        st.warning("ER-negative disease generally does not support tamoxifen as standard endocrine therapy. Confirm pathology and treatment rationale with oncology.")
-    if stage == "Stage IV" or mets == "Distant metastasis present":
-        st.info("Metastatic treatment selection requires current oncology guidelines, tumor biology and prior treatment history.")
-
-# ----------------------------- LABS & PGX -------------------------------------
-with tabs[1]:
-    st.subheader("Laboratory data and pharmacogenomics")
-    l1,l2 = st.columns(2)
-
-    with l1:
-        scr = st.number_input("Serum creatinine (mg/dL)", 0.1, 15.0, 0.9, 0.1, key="scr")
-        ast = st.number_input("AST (U/L)", 0.0, 5000.0, 25.0, 1.0, key="ast")
-        alt = st.number_input("ALT (U/L)", 0.0, 5000.0, 25.0, 1.0, key="alt")
-        bilirubin = st.number_input("Total bilirubin (mg/dL)", 0.0, 30.0, 0.8, 0.1, key="bilirubin")
-        albumin = st.number_input("Albumin (g/dL)", 0.0, 8.0, 4.0, 0.1, key="albumin")
-        cbc = st.text_area("CBC / other laboratory results (include units and dates)", key="cbc")
-
-        if sex != "Not specified":
-            egfr = egfr_ckdepi_2021(age, sex, scr)
-            crcl = crcl_cockcroft_gault(age, weight, scr, sex)
-        else:
-            egfr, crcl = None, None
-
-        m1,m2 = st.columns(2)
-        m1.metric("eGFR CKD-EPI 2021", f"{egfr:.1f}" if egfr is not None else "N/A",
-                  help="mL/min/1.73 m²; adult estimate")
-        m2.metric("CrCl Cockcroft–Gault", f"{crcl:.1f}" if crcl is not None else "N/A",
-                  help="mL/min; weight selection requires clinical judgment")
-        st.caption("These estimates are not interchangeable and do not independently determine tamoxifen dose.")
-
-    with l2:
-        alleles = st.selectbox("CYP2D6 diplotype", [
-            "Not entered","*1/*1","*1/*2","*1/*4","*1/*10",
-            "*4/*10","*4/*4","*10/*10","*1/*1xN","Other / lab report"
-        ], key="alleles")
-        phenotype = st.selectbox("Laboratory-reported phenotype", [
-            "Unknown / not tested","Ultrarapid metabolizer (UM)",
-            "Normal metabolizer (NM)","Intermediate metabolizer (IM)",
-            "Poor metabolizer (PM)","Indeterminate / needs lab interpretation"
-        ], key="phenotype")
-        pgx_date = st.date_input("PGx report date", date.today(), key="pgx_date")
-        activity_score = st.text_input("Activity score / lab interpretation", key="activity_score")
-        measured_endoxifen = st.number_input(
-            "Measured endoxifen (ng/mL; 0 = not entered)",
-            min_value=0.0, max_value=1000.0, value=0.0, step=0.1, key="measured_endoxifen"
+        st.selectbox(
+            "Clinical indication",
+            [
+                "ER-positive breast cancer",
+                "Risk reduction",
+                "Other / research scenario"
+            ],
+            key="indication"
         )
-        st.markdown("""
-        <div class="panel"><b>PGx guardrail</b><br>
-        Star alleles must be interpreted using the laboratory's methods, activity score and
-        relevant structural/copy-number variants. This app does not call a genotype from DNA.</div>
-        """, unsafe_allow_html=True)
 
-    st.markdown("#### Guideline interpretation")
-    st.info(pgx_guidance(phenotype))
+        st.selectbox(
+            "Treatment setting",
+            [
+                "Adjuvant",
+                "Neoadjuvant",
+                "Metastatic",
+                "Risk reduction",
+                "Not recorded"
+            ],
+            key="treatment_setting",
+        ) if "treatment_setting" not in st.session_state else st.selectbox(
+            "Treatment setting",
+            ["Adjuvant", "Neoadjuvant", "Metastatic",
+             "Risk reduction", "Not recorded"],
+            key="treatment_setting"
+        )
 
-# ---------------------- TREATMENT & INTERACTIONS ------------------------------
+        st.text_input(
+            "Study / cohort code (optional)",
+            key="study_code"
+        )
+
+    weight = st.number_input(
+        "Weight (kg)", min_value=0.0, max_value=350.0,
+        value=float(st.session_state.get("weight", 65.0)), step=0.5
+    )
+    height = st.number_input(
+        "Height (cm)", min_value=0.0, max_value=250.0,
+        value=float(st.session_state.get("height", 160.0)), step=0.5
+    )
+
+    bmi = calculate_bmi(weight, height)
+
+    a, b, c = st.columns(3)
+    with a:
+        metric_card("Patient code", st.session_state.patient_code)
+    with b:
+        metric_card("Age", f"{st.session_state.age} years")
+    with c:
+        metric_card("BMI", f"{bmi}" if bmi else "Not calculated",
+                    "Descriptive measure only")
+
+    st.caption(
+        "BMI is included for research context; it is not used here "
+        "to select or calculate a tamoxifen dose."
+    )
+
+# ======================= TAB 2 ===============================
+
+with tabs[1]:
+    st.subheader("CYP2D6 Pharmacogenomics")
+
+    st.info(
+        "Select an activity score only if a validated genotype-to-"
+        "activity translation is available. The dropdown below is a "
+        "simplified research input, not a genotype caller."
+    )
+
+    st.text_input("CYP2D6 diplotype (as reported by laboratory)", key="diplotype")
+
+    st.selectbox(
+        "CYP2D6 activity score",
+        options=[0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 3.0],
+        key="activity_score"
+    )
+
+    phenotype, interpretation = classify_cyp2d6_activity(
+        float(st.session_state.activity_score)
+    )
+
+    p1, p2 = st.columns(2)
+    with p1:
+        metric_card("Interpreted phenotype", phenotype)
+    with p2:
+        metric_card("Activity score", st.session_state.activity_score)
+
+    st.markdown("#### Interpretation note")
+    st.write(interpretation)
+
+    st.markdown("---")
+    st.subheader("Laboratory context")
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    with c1:
+        alt = st.number_input("ALT (U/L)", min_value=0.0, value=25.0, step=1.0)
+    with c2:
+        ast = st.number_input("AST (U/L)", min_value=0.0, value=24.0, step=1.0)
+    with c3:
+        bilirubin = st.number_input(
+            "Total bilirubin (mg/dL)", min_value=0.0, value=0.8, step=0.1
+        )
+    with c4:
+        creatinine = st.number_input(
+            "Creatinine (mg/dL)", min_value=0.0, value=0.9, step=0.1
+        )
+
+    st.caption(
+        "Enter results from the clinical record. This prototype does not "
+        "automatically label these results as normal or abnormal because "
+        "reference ranges vary by laboratory and clinical context."
+    )
+
+    st.markdown("#### Other relevant research inputs")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        adherence = st.selectbox(
+            "Reported adherence",
+            ["Not assessed", "Good", "Intermittent", "Poor", "Unknown"]
+        )
+    with c2:
+        endoxifen = st.number_input(
+            "Endoxifen concentration (optional; ng/mL)",
+            min_value=0.0,
+            value=0.0,
+            step=0.1
+        )
+
+    if endoxifen == 0:
+        st.caption("Endoxifen value left at 0: treated as not entered in this prototype.")
+
+# ======================= TAB 3 ===============================
+
 with tabs[2]:
-    st.subheader("Treatment, adherence and interaction screen")
-    t1,t2 = st.columns(2)
-    with t1:
-        dose = st.selectbox("Current/planned tamoxifen dose", [
-            "Not applicable / not started","10 mg/day","20 mg/day",
-            "40 mg/day","Other / verify prescription"
-        ], key="dose")
-        adherence = st.slider("Self-reported adherence (%)",0,100,90,5,key="adherence")
-        missed = st.number_input("Missed doses in last 30 days",0,30,2,key="missed")
-        comorbidities = st.multiselect("Relevant comorbidities / safety history", [
-            "History of venous thromboembolism (DVT/PE)",
-            "Endometrial pathology / abnormal uterine bleeding",
-            "Liver disease","Visual symptoms / retinopathy",
-            "Osteoporosis / fracture risk","Cardiovascular disease",
-            "Other / review required"
-        ], key="comorbidities")
-        symptoms = st.multiselect("Current symptoms / possible adverse effects", [
-            "Hot flashes","Vaginal symptoms","Abnormal uterine bleeding",
-            "Leg swelling/pain or shortness of breath (urgent assessment)",
-            "Visual symptoms","Mood/sleep symptoms","GI symptoms",
-            "No symptoms reported","Other"
-        ], key="symptoms")
+    st.subheader("Tamoxifen Therapy Context")
 
-    with t2:
-        meds = st.multiselect("Concomitant medicines", [
-            "None entered","Paroxetine","Fluoxetine","Bupropion","Quinidine",
-            "Duloxetine","Terbinafine","Sertraline","Other medicine — review required"
-        ], key="meds")
-        other_meds = st.text_area("Other prescription / OTC medicines and supplements", key="other_meds")
-        interaction_notes = st.text_area("Pharmacist / prescriber review notes", key="interaction_notes")
+    st.write(
+        "Tamoxifen is commonly prescribed at 20 mg once daily in relevant "
+        "breast-cancer settings. The correct regimen depends on the indication, "
+        "patient context and local guideline. This page does not prescribe."
+    )
 
-    interaction_results = interaction_review(meds)
-    if not interaction_results:
-        st.success("No selected medicine triggered this limited screen. This is not a complete interaction check.")
-    for med,level,detail in interaction_results:
-        if level == "High-priority review":
-            st.error(f"**{level}: {med}.** {detail}")
-        else:
-            st.warning(f"**{level}: {med}.** {detail}")
+    st.number_input(
+        "Current recorded tamoxifen dose (mg/day)",
+        min_value=0.0,
+        max_value=100.0,
+        step=5.0,
+        key="tamoxifen_dose"
+    )
 
-    if adherence < 80 or missed >= 5:
-        st.warning("Discuss adherence barriers with the care team. Do not double doses to compensate for missed doses.")
-    if "History of venous thromboembolism (DVT/PE)" in comorbidities:
-        st.warning("History of DVT/PE requires explicit clinical risk/benefit review.")
-    if "Leg swelling/pain or shortness of breath (urgent assessment)" in symptoms:
-        st.error("Potential urgent warning symptom selected. Seek prompt clinical assessment.")
+    st.text_area(
+        "Current medications (enter generic names, separated by commas)",
+        key="medications",
+        height=100,
+        placeholder="Example: medicine A, medicine B"
+    )
 
-# ----------------------------- PHARMACOLOGY -----------------------------------
+    inhibitors = check_cyp2d6_inhibitors(st.session_state.medications)
+
+    st.markdown("#### Interaction screening")
+
+    if inhibitors:
+        st.error(
+            "Potential CYP2D6 inhibitor name(s) detected. This is a "
+            "keyword screen, not a comprehensive interaction check."
+        )
+        for drug, description in inhibitors:
+            st.markdown(f"- **{drug}** — {description}")
+
+        st.warning(
+            "Ask the prescribing clinician or pharmacist to review whether "
+            "an alternative medication is appropriate. Do not stop a medicine "
+            "without clinical advice."
+        )
+    else:
+        st.success(
+            "No medicines from this prototype's small keyword list were detected. "
+            "This does not establish that the medication list is interaction-free."
+        )
+
+    st.markdown("#### Guideline-informed discussion prompts")
+
+    if phenotype in ["Poor metabolizer", "Intermediate metabolizer"]:
+        st.warning(
+            "The interpreted CYP2D6 phenotype may be associated with reduced "
+            "endoxifen formation. Discuss the applicable CPIC guidance and "
+            "available endocrine-treatment options with the oncology team."
+        )
+        st.markdown(
+            "- Confirm the laboratory result and allele translation.\n"
+            "- Review CYP2D6-inhibiting co-medications.\n"
+            "- Consider menopausal status and the full oncology treatment plan.\n"
+            "- Any endocrine-treatment change or dose adjustment requires clinician review."
+        )
+    elif phenotype in ["Normal metabolizer", "Ultrarapid metabolizer"]:
+        st.info(
+            "Do not increase the dose solely because of this phenotype. "
+            "Review the full clinical picture, adherence, interactions and "
+            "the applicable guideline."
+        )
+    else:
+        st.info("A reliable phenotype is not available for this record.")
+
+    st.markdown(
+        """
+        **Clinical guideline reference:**  
+        CPIC guideline for CYP2D6 and tamoxifen therapy:  
+        https://cpicpgx.org/guidelines/guideline-for-tamoxifen-and-cyp2d6/
+        """
+    )
+
+    st.caption(
+        "This screen does not determine whether tamoxifen is appropriate, "
+        "does not calculate an individualized dose, and does not replace "
+        "the oncology team's decision."
+    )
+
+# ======================= TAB 4 ===============================
+
 with tabs[3]:
-    st.subheader("Patient-linked pharmacology visuals")
-    st.markdown("""
-    <div class="notice"><b>Illustrative model only:</b> This prototype does not calculate validated
-    patient-specific AUC, endoxifen concentration, recurrence probability or toxicity probability.
-    Genotype alone cannot supply these outputs.</div>
-    """, unsafe_allow_html=True)
+    st.subheader("Safety Monitoring & Pharmacovigilance")
 
-    phenotype_factor = {
-        "Ultrarapid metabolizer (UM)":1.15,
-        "Normal metabolizer (NM)":1.0,
-        "Intermediate metabolizer (IM)":0.70,
-        "Poor metabolizer (PM)":0.35,
-        "Unknown / not tested":1.0,
-        "Indeterminate / needs lab interpretation":1.0
-    }.get(phenotype,1.0)
-    strong = {"Paroxetine","Fluoxetine","Bupropion","Quinidine"}
-    moderate = {"Duloxetine","Terbinafine","Sertraline"}
-    inhibitor_factor = 0.60 if any(m in strong for m in meds) else 0.80 if any(m in moderate for m in meds) else 1.0
-    adherence_factor = adherence / 100
-    relative_index = phenotype_factor * inhibitor_factor * adherence_factor
+    st.text_area(
+        "Current symptoms / suspected adverse events",
+        key="symptoms",
+        height=110,
+        placeholder="Describe symptoms, onset, duration and relevant context."
+    )
 
-    q1,q2,q3,q4 = st.columns(4)
-    q1.metric("Phenotype factor",f"{phenotype_factor:.2f}×")
-    q2.metric("Inhibitor scenario",f"{inhibitor_factor:.2f}×")
-    q3.metric("Adherence factor",f"{adherence_factor:.2f}×")
-    q4.metric("Illustrative index",f"{relative_index:.2f}")
+    st.markdown("#### Record a suspected adverse event")
 
-    if PLOTLY_OK:
-        days = np.linspace(0,30,121)
-        ref = 1-np.exp(-0.12*days)
-        selected = relative_index*ref
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=days,y=ref,mode="lines",name="Reference scenario"))
-        fig.add_trace(go.Scatter(x=days,y=selected,mode="lines",name="Selected-input scenario",fill="tozeroy"))
-        fig.update_layout(template="plotly_dark",height=400,
-            title="Illustrative relative formation curve (arbitrary units)",
-            xaxis_title="Illustrative time (days)",yaxis_title="Relative index — not concentration")
-        st.plotly_chart(fig,use_container_width=True)
-    else:
-        st.line_chart(pd.DataFrame({
-            "Reference scenario":np.linspace(0,1,31),
-            "Selected-input scenario":np.linspace(0,relative_index,31)
-        }))
+    with st.form("adverse_event_form"):
+        event_name = st.text_input(
+            "Event / symptom",
+            placeholder="e.g. hot flashes, leg swelling, abnormal bleeding"
+        )
 
-    if measured_endoxifen > 0:
-        st.metric("Entered measured endoxifen",f"{measured_endoxifen:.1f} ng/mL")
-        st.caption("Interpret with sampling timing, assay, adherence and evidence; no automatic therapeutic classification is made.")
-    else:
-        st.info("No measured endoxifen result entered. No concentration or AUC has been fabricated.")
+        severity = st.selectbox(
+            "Reported severity",
+            ["Mild", "Moderate", "Severe", "Unknown"]
+        )
 
-    st.markdown("""
-    <div class="panel">
-    <b>Mechanism</b><br>
-    Tamoxifen → CYP2D6 contributes to endoxifen formation → endoxifen acts at estrogen receptors.
-    CYP2D6 phenotype and inhibitors can affect endoxifen formation. Clinical response also depends
-    on tumor biology, adherence, other treatments and patient context.
-    </div>
-    """, unsafe_allow_html=True)
+        event_notes = st.text_area(
+            "Notes",
+            placeholder="Onset, duration, suspected relationship, action taken"
+        )
 
-# ---------------------------- SAFETY / PV -------------------------------------
+        submitted = st.form_submit_button("Save adverse-event entry")
+
+        if submitted:
+            if not event_name.strip():
+                st.error("Enter an event name before saving.")
+            else:
+                with sqlite3.connect(DB_PATH) as conn:
+                    conn.execute(
+                        """
+                        INSERT INTO adverse_events
+                        (event_time, patient_code, event_name, severity, notes)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (
+                            datetime.now().isoformat(timespec="seconds"),
+                            st.session_state.patient_code,
+                            event_name.strip(),
+                            severity,
+                            event_notes.strip()
+                        )
+                    )
+                    conn.commit()
+
+                st.success("Adverse-event entry saved in the local research database.")
+
+    st.markdown("---")
+    st.markdown("#### Safety reminders")
+
+    st.warning(
+        "New or severe symptoms require clinical assessment. This application "
+        "cannot determine causality or replace an adverse-event assessment."
+    )
+
+    st.markdown(
+        """
+        Examples of symptoms that should not be ignored include:
+        - New unilateral leg swelling or pain, or sudden shortness of breath.
+        - New or unusual vaginal bleeding.
+        - Severe or rapidly worsening symptoms.
+
+        Seek urgent medical care for potentially serious symptoms. This list is
+        not exhaustive and is not a diagnostic tool.
+        """
+    )
+
+# ======================= TAB 5 ===============================
+
 with tabs[4]:
-    st.subheader("Safety monitoring and adverse-event case log")
-    st.caption("Local case log only—not a live global pharmacovigilance feed.")
-    with st.form("ae_form",clear_on_submit=True):
-        ev1,ev2 = st.columns(2)
-        with ev1:
-            event_date = st.date_input("Event date",date.today())
-            event = st.selectbox("Adverse event",[
-                "Hot flashes","Venous thromboembolism / suspected clot",
-                "Abnormal uterine bleeding / endometrial event","Visual disturbance",
-                "Hepatic event","Nausea / GI event","Other"
-            ])
-            severity = st.selectbox("Severity",["Not assessed","Mild","Moderate","Severe","Life-threatening"])
-        with ev2:
-            serious = st.selectbox("Seriousness",["Not assessed","Non-serious","Serious"])
-            suspected_drug = st.text_input("Suspected medicine","Tamoxifen")
-            ae_notes = st.text_area("Description, outcome and source (no identifiers)")
-        submit_ae = st.form_submit_button("Save adverse-event record")
-        if submit_ae:
-            con.execute("""INSERT INTO adverse_events
-                (patient_code,event_date,event,severity,serious,suspected_drug,notes)
-                VALUES(?,?,?,?,?,?,?)""",
-                (patient_code,event_date.isoformat(),event,severity,serious,suspected_drug,ae_notes))
-            con.commit()
-            st.success("Adverse-event record saved locally.")
+    st.subheader("Research Validation Workspace")
 
-    ae_df = pd.read_sql_query(
-        "SELECT event_date,event,severity,serious,suspected_drug,notes FROM adverse_events WHERE patient_code=? ORDER BY event_date DESC",
-        con,params=(patient_code,))
-    if ae_df.empty:
-        st.info("No adverse-event cases saved for this study code.")
-    else:
-        st.dataframe(ae_df,use_container_width=True,hide_index=True)
-        st.download_button("Export case log CSV",ae_df.to_csv(index=False).encode(),
-            file_name=f"{patient_code}_adverse_events.csv",mime="text/csv")
+    st.write(
+        "This section helps plan a future clinical research study. "
+        "It does not claim that a toxicity prediction model has been trained "
+        "or clinically validated."
+    )
 
-    st.info("A case log alone cannot establish causality or a statistical signal. Real PV analysis needs a defined data source, deduplication, case definitions, comparator terms and a prespecified method.")
+    st.markdown("#### Define the proposed study")
 
-# -------------------------------- REPORT ---------------------------------------
+    study_title = st.text_input(
+        "Proposed study title",
+        value="CYP2D6 and tamoxifen-related outcomes in breast cancer"
+    )
+
+    outcome = st.selectbox(
+        "Primary endpoint",
+        [
+            "Any-grade adverse event",
+            "Grade 3 or higher toxicity",
+            "Treatment discontinuation",
+            "Endoxifen concentration",
+            "Adherence",
+            "Other / exploratory"
+        ]
+    )
+
+    design = st.selectbox(
+        "Study design",
+        [
+            "Retrospective cohort",
+            "Prospective observational cohort",
+            "External validation",
+            "Pilot feasibility study"
+        ]
+    )
+
+    data_status = st.selectbox(
+        "Dataset status",
+        [
+            "No dataset yet",
+            "Published aggregate data only",
+            "De-identified individual-level dataset available",
+            "Prospective recruitment planned"
+        ]
+    )
+
+    sample_size = st.number_input(
+        "Estimated sample size",
+        min_value=0,
+        max_value=1000000,
+        value=0,
+        step=10
+    )
+
+    st.markdown("#### Proposed candidate predictors")
+
+    predictors = st.multiselect(
+        "Select candidate variables",
+        [
+            "Age",
+            "Menopausal status",
+            "CYP2D6 genotype / activity score",
+            "CYP2D6-inhibiting co-medications",
+            "Tamoxifen dose",
+            "Adherence",
+            "Endoxifen concentration",
+            "Liver function",
+            "Renal function",
+            "Comorbidities",
+            "Concomitant medicines",
+            "Treatment duration",
+            "Baseline toxicity history"
+        ],
+        default=[
+            "Age",
+            "CYP2D6 genotype / activity score",
+            "CYP2D6-inhibiting co-medications",
+            "Tamoxifen dose",
+            "Adherence"
+        ]
+    )
+
+    st.markdown("#### Validation checklist")
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        ethics = st.checkbox("Ethics approval / waiver addressed")
+        privacy = st.checkbox("Data de-identification and access controls addressed")
+        outcome_definition = st.checkbox("Outcome definition specified in advance")
+        missingness = st.checkbox("Missing-data plan specified")
+
+    with c2:
+        leakage = st.checkbox("Data leakage prevention plan specified")
+        external = st.checkbox("External validation cohort planned")
+        calibration = st.checkbox("Calibration assessment planned")
+        clinical_utility = st.checkbox("Clinical utility assessment planned")
+
+    checklist = {
+        "Ethics": ethics,
+        "Privacy": privacy,
+        "Outcome definition": outcome_definition,
+        "Missing-data plan": missingness,
+        "Leakage prevention": leakage,
+        "External validation": external,
+        "Calibration": calibration,
+        "Clinical utility": clinical_utility
+    }
+
+    completed = sum(checklist.values())
+    st.progress(completed / len(checklist))
+    st.write(f"Research-readiness checklist: **{completed}/{len(checklist)}** items checked.")
+
+    if completed < len(checklist):
+        st.caption("Unchecked items represent tasks to address; they are not necessarily mandatory in identical form for every study.")
+
+    study_plan = {
+        "study_title": study_title,
+        "design": design,
+        "primary_endpoint": outcome,
+        "dataset_status": data_status,
+        "estimated_sample_size": sample_size,
+        "candidate_predictors": predictors,
+        "validation_checklist": checklist,
+        "created_at": datetime.now().isoformat(timespec="seconds")
+    }
+
+    st.download_button(
+        "Download research plan (JSON)",
+        data=json.dumps(study_plan, indent=2),
+        file_name="oncopgx_research_plan.json",
+        mime="application/json"
+    )
+
+    st.markdown("#### Recommended modelling sequence")
+
+    st.markdown(
+        """
+        1. Define the outcome and the time window before examining results.
+        2. Establish a reproducible data dictionary and quality-control plan.
+        3. Start with descriptive statistics and a clinically interpretable baseline model.
+        4. Separate training and evaluation data at the patient level.
+        5. Evaluate discrimination, calibration and clinically relevant errors.
+        6. Use internal resampling and, where feasible, an independent external cohort.
+        7. Assess clinical utility before considering prospective implementation.
+        """
+    )
+
+    st.caption(
+        "No model training, risk score or toxicity probability is generated by this tab."
+    )
+
+# ======================= TAB 6 ===============================
+
 with tabs[5]:
-    st.subheader("Tumor-board report")
-    report_time = datetime.now().strftime("%Y-%m-%d %H:%M")
-    report = f"""# OncoPGx — Tamoxifen Clinical Review
+    st.subheader("Tumor Board / Research Report")
 
-**Study code:** {patient_code}  
-**Generated:** {report_time}  
-**Status:** Research prototype; not a validated clinical decision system.
+    st.text_area(
+        "Clinical review note",
+        key="clinical_review",
+        placeholder=(
+            "Document the clinician's interpretation, uncertainties, "
+            "and follow-up plan. Do not enter unnecessary identifiers."
+        ),
+        height=120
+    )
 
-## Patient and cancer
-- Age: {age}; sex for equations: {sex}; menopausal status: {menopausal}
-- Cancer subtype: {subtype}
-- ER / PR / HER2: {er} / {pr} / {her2}
-- Stage: {stage}; metastasis: {mets}
-- Disease status: {disease}
-- Tamoxifen status: {treatment_status}; entered dose: {dose}
+    current_phenotype, current_interpretation = classify_cyp2d6_activity(
+        float(st.session_state.activity_score)
+    )
 
-## Laboratory data
-- Creatinine: {scr} mg/dL
-- AST / ALT: {ast} / {alt} U/L
-- Total bilirubin: {bilirubin} mg/dL; albumin: {albumin} g/dL
-- eGFR CKD-EPI 2021: {f'{egfr:.1f} mL/min/1.73 m²' if egfr is not None else 'Not calculated'}
-- CrCl Cockcroft-Gault: {f'{crcl:.1f} mL/min' if crcl is not None else 'Not calculated'}
-- CBC / other labs: {cbc or 'Not entered'}
+    record = {
+        "patient_code": st.session_state.patient_code,
+        "age": st.session_state.age,
+        "sex": st.session_state.sex,
+        "indication": st.session_state.indication,
+        "menopausal_status": st.session_state.menopausal_status,
+        "treatment_setting": st.session_state.get("treatment_setting", "Not recorded"),
+        "diplotype": st.session_state.diplotype,
+        "activity_score": st.session_state.activity_score,
+        "phenotype": current_phenotype,
+        "phenotype_interpretation": current_interpretation,
+        "tamoxifen_dose": st.session_state.tamoxifen_dose,
+        "medications": st.session_state.medications,
+        "symptoms": st.session_state.symptoms,
+        "alt": alt,
+        "ast": ast,
+        "bilirubin": bilirubin,
+        "creatinine": creatinine,
+        "adherence": adherence,
+        "endoxifen": endoxifen if endoxifen > 0 else "Not entered",
+        "clinical_review": st.session_state.clinical_review,
+        "report_generated": datetime.now().isoformat(timespec="seconds")
+    }
 
-## Pharmacogenomics
-- CYP2D6 diplotype: {alleles}
-- Phenotype entered: {phenotype}
-- Guideline context: {pgx_guidance(phenotype)}
-- Measured endoxifen: {f'{measured_endoxifen:.1f} ng/mL' if measured_endoxifen > 0 else 'Not entered'}
+    r1, r2, r3 = st.columns(3)
 
-## Treatment, adherence and interactions
-- Adherence: {adherence}%; missed doses in last 30 days: {missed}
-- Selected medicines: {', '.join(meds) if meds else 'None entered'}
-- Other medicines/supplements: {other_meds or 'Not entered'}
-- Comorbidities: {', '.join(comorbidities) if comorbidities else 'None entered'}
-- Symptoms: {', '.join(symptoms) if symptoms else 'None entered'}
-- Interaction review notes: {interaction_notes or 'Not entered'}
+    with r1:
+        metric_card("CYP2D6 phenotype", current_phenotype)
 
-## Review flags
-"""
-    flags = []
-    if er == "Negative":
-        flags.append("ER-negative status: confirm pathology and endocrine treatment rationale.")
-    if phenotype in ("Poor metabolizer (PM)","Intermediate metabolizer (IM)"):
-        flags.append("CYP2D6 phenotype may affect endoxifen formation; review CPIC guidance and clinical context.")
-    for med,level,detail in interaction_results:
-        flags.append(f"{level}: {med} — {detail}")
-    if "History of venous thromboembolism (DVT/PE)" in comorbidities:
-        flags.append("History of DVT/PE requires explicit risk/benefit review.")
-    if not flags:
-        flags.append("No flag triggered by the limited rules in this prototype; not a comprehensive clearance.")
-    report += "\n".join(f"- {x}" for x in flags)
-    report += f"""
+    with r2:
+        metric_card("Recorded dose", f"{st.session_state.tamoxifen_dose:g} mg/day")
 
-## Limitations and next steps
-- No validated patient-specific AUC, endoxifen prediction, recurrence prediction, toxicity probability or autonomous dose selection is implemented.
-- Confirm pathology, complete medication list, lab dates/units, PGx laboratory interpretation and current institutional guidance.
-- Aromatase inhibitor selection depends on menopausal status, ovarian suppression, contraindications and cancer context.
-- Treating oncologist and pharmacist must make final decisions.
+    with r3:
+        metric_card("Adherence", adherence)
 
-## References
-- CPIC CYP2D6 and Tamoxifen Therapy Guideline: {CPIC_URL}
-- CPIC guideline publication: {CPIC_PAPER}
-- Check current local oncology protocols and product information.
-"""
-    st.markdown(report)
-    st.download_button("⬇️ Download report (Markdown)",report.encode(),
-        file_name=f"{patient_code}_tumor_board_report.md",mime="text/markdown",use_container_width=True)
+    st.markdown("#### Report preview")
+    st.markdown(make_report(record))
 
-    html_report = f"""<!doctype html><html><head><meta charset="utf-8">
-    <title>OncoPGx Report</title><style>body{{font-family:Arial;max-width:900px;margin:35px auto;line-height:1.5;color:#172033}}h1,h2{{color:#0f766e}}</style></head>
-    <body><h1>OncoPGx Tumor-board Report</h1>
-    <p><b>Research prototype:</b> Not a validated clinical decision system or prescription.</p>
-    <pre style="white-space:pre-wrap;font-family:Arial">{html.escape(report)}</pre>
-    <p>Use browser Print → Save as PDF to create a PDF copy.</p></body></html>"""
-    st.download_button("⬇️ Download printable HTML report",html_report.encode(),
-        file_name=f"{patient_code}_tumor_board_report.html",mime="text/html",use_container_width=True)
+    st.download_button(
+        "⬇️ Download research summary (Markdown)",
+        data=make_report(record),
+        file_name=f"OncoPGx_{st.session_state.patient_code}_summary.md",
+        mime="text/markdown"
+    )
 
-    if st.button("💾 Save current patient snapshot",type="primary"):
-        snapshot = {
-            "patient_code":patient_code,"saved_at":report_time,
-            "age":age,"sex":sex,"menopausal":menopausal,"height_cm":height,"weight_kg":weight,
-            "subtype":subtype,"ER":er,"PR":pr,"HER2":her2,"stage":stage,"metastasis":mets,
-            "disease_status":disease,"treatment_status":treatment_status,"start_date":str(start_date),
-            "creatinine":scr,"AST":ast,"ALT":alt,"bilirubin":bilirubin,"albumin":albumin,
-            "eGFR":egfr,"CrCl":crcl,"CYP2D6_diplotype":alleles,"phenotype":phenotype,
-            "activity_score":activity_score,"measured_endoxifen":measured_endoxifen,
-            "dose":dose,"adherence":adherence,"missed_doses":missed,"medicines":meds,
-            "comorbidities":comorbidities,"symptoms":symptoms,"clinical_notes":clinical_notes
-        }
-        con.execute("INSERT INTO snapshots(patient_code,saved_at,data) VALUES(?,?,?)",
-            (patient_code,report_time,json.dumps(snapshot,default=str)))
-        con.commit()
-        st.success("Patient snapshot saved.")
+    st.download_button(
+        "⬇️ Download structured record (JSON)",
+        data=json.dumps(record, indent=2, default=str),
+        file_name=f"OncoPGx_{st.session_state.patient_code}_record.json",
+        mime="application/json"
+    )
 
-# ----------------------------- PATIENT RECORDS -------------------------------
+    if st.button("💾 Save patient snapshot to local database"):
+        save_patient_record(record)
+        st.success("Snapshot saved locally. Avoid storing identifiable patient data.")
+
+# ======================= TAB 7 ===============================
+
 with tabs[6]:
-    st.subheader("Saved patient snapshots and follow-up")
-    st.caption("SQLite persistence depends on the hosting filesystem. For production, use managed persistent storage, authentication and access controls.")
+    st.subheader("Local Research Records")
 
-    with st.form("followup_form",clear_on_submit=True):
-        f1,f2 = st.columns(2)
-        with f1:
-            visit_date = st.date_input("Follow-up date",date.today())
-            follow_adherence = st.slider("Adherence at follow-up (%)",0,100,90,5)
-            follow_endoxifen = st.number_input("Measured endoxifen (ng/mL; 0 = not entered)",0.0,1000.0,0.0,0.1)
-        with f2:
-            follow_toxicity = st.text_area("Toxicity / patient-reported outcomes")
-            follow_labs = st.text_area("Follow-up lab notes (units and dates)")
-        submit_follow = st.form_submit_button("Save follow-up")
-        if submit_follow:
-            con.execute("""INSERT INTO followups
-                (patient_code,visit_date,adherence,endoxifen,toxicity,labs)
-                VALUES(?,?,?,?,?,?)""",
-                (patient_code,visit_date.isoformat(),follow_adherence,
-                 follow_endoxifen if follow_endoxifen > 0 else None,
-                 follow_toxicity,follow_labs))
-            con.commit()
-            st.success("Follow-up saved.")
+    st.caption(
+        "Records are stored in a local SQLite database beside the app. "
+        "For hosted deployments, persistence and privacy depend on the hosting setup."
+    )
 
-    snap_df = pd.read_sql_query(
-        "SELECT id,patient_code,saved_at,data FROM snapshots WHERE patient_code=? ORDER BY id DESC",
-        con,params=(patient_code,))
-    if snap_df.empty:
-        st.info("No saved snapshots yet. Save one from the Report tab.")
-    else:
-        st.dataframe(snap_df[["id","patient_code","saved_at"]],use_container_width=True,hide_index=True)
-        snap_id = st.selectbox("Choose snapshot ID",snap_df["id"].tolist())
-        row = snap_df[snap_df["id"] == snap_id].iloc[0]
-        st.json(json.loads(row["data"]))
-        st.download_button("Download snapshot JSON",row["data"].encode(),
-            file_name=f"{patient_code}_snapshot_{snap_id}.json",mime="application/json")
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            patient_df = __import__("pandas").read_sql_query(
+                """
+                SELECT id, record_time, patient_code, record_json
+                FROM patient_records
+                ORDER BY id DESC
+                LIMIT 200
+                """,
+                conn
+            )
 
-    follow_df = pd.read_sql_query(
-        "SELECT visit_date,adherence,endoxifen,toxicity,labs FROM followups WHERE patient_code=? ORDER BY visit_date",
-        con,params=(patient_code,))
-    if not follow_df.empty:
-        st.markdown("#### Follow-up timeline")
-        st.dataframe(follow_df,use_container_width=True,hide_index=True)
-        if PLOTLY_OK:
-            fig = px.line(follow_df,x="visit_date",y="adherence",markers=True,
-                title="Self-reported adherence over time")
-            fig.update_layout(template="plotly_dark",yaxis_title="Adherence (%)",yaxis_range=[0,100])
-            st.plotly_chart(fig,use_container_width=True)
-        st.download_button("Export follow-up CSV",follow_df.to_csv(index=False).encode(),
-            file_name=f"{patient_code}_followups.csv",mime="text/csv")
+            event_df = __import__("pandas").read_sql_query(
+                """
+                SELECT id, event_time, patient_code, event_name, severity, notes
+                FROM adverse_events
+                ORDER BY id DESC
+                LIMIT 200
+                """,
+                conn
+            )
+
+        st.markdown("#### Saved patient snapshots")
+        if patient_df.empty:
+            st.info("No patient snapshots have been saved yet.")
+        else:
+            display_df = patient_df.drop(columns=["record_json"])
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+            selected_id = st.selectbox(
+                "Select snapshot ID to inspect",
+                patient_df["id"].tolist()
+            )
+
+            selected_row = patient_df[patient_df["id"] == selected_id].iloc[0]
+            try:
+                parsed = json.loads(selected_row["record_json"])
+                st.json(parsed)
+            except (json.JSONDecodeError, TypeError):
+                st.warning("Could not parse this saved record.")
+
+        st.markdown("---")
+        st.markdown("#### Adverse-event log")
+
+        if event_df.empty:
+            st.info("No adverse-event entries recorded.")
+        else:
+            st.dataframe(event_df, use_container_width=True, hide_index=True)
+
+            st.download_button(
+                "Download adverse-event log (CSV)",
+                data=event_df.to_csv(index=False),
+                file_name="oncopgx_adverse_events.csv",
+                mime="text/csv"
+            )
+
+    except Exception as exc:
+        st.error(f"Could not read local records: {exc}")
+
+# ----------------------- FOOTER ------------------------------
 
 st.markdown("---")
-st.caption("OncoPGx Research Prototype · De-identified data only · Not for autonomous diagnosis, prescribing, emergency triage or validated toxicity prediction.")
+
+st.markdown(
+    """
+    <div style="text-align:center; padding:14px; color:#557080;">
+        <b>🧬 OncoPGx</b> · Tamoxifen Pharmacogenomics Research Prototype<br>
+        <span style="font-size:.82rem;">
+        Research support only · Not a substitute for clinical judgment ·
+        Validate before any clinical deployment
+        </span>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
