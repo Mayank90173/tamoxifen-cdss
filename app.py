@@ -1,155 +1,101 @@
 
-import streamlit as st
+from datetime import date, datetime
+from io import StringIO
+import math
+
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime, date
+import streamlit as st
 
-# =========================================================
-# ONCOPGX | TAMOXIFEN SAFE-USE EXPLORER
-# Educational / research prototype — not validated CDS
-# Dependencies: streamlit, pandas, plotly
-# =========================================================
+
+# ============================================================
+# ONCOPGX INDIA — T A M O X I F E N  R E S E A R C H  E X P L O R E R
+# Research / educational prototype — NOT a clinical decision tool
+# ============================================================
 
 st.set_page_config(
-    page_title="OncoPGx | Clinical Explorer",
+    page_title="OncoPGx India | Tamoxifen Explorer",
     page_icon="🧬",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
-st.markdown("""
-<style>
-.stApp {
-    background: linear-gradient(135deg,#07111f,#0b1728);
-    color: #edf4ff;
-}
-[data-testid="stSidebar"] {background:#0b192b;}
-[data-testid="stMetric"] {
-    background:#11243a;
-    border:1px solid #29465f;
-    padding:14px;
-    border-radius:12px;
-}
-h1,h2,h3 {color:#eaf5ff;}
-</style>
-""", unsafe_allow_html=True)
+st.markdown(
+    """
+    <style>
+    .block-container {padding-top: 1.2rem; padding-bottom: 2rem;}
+    .hero {
+        padding: 1.25rem 1.5rem;
+        border: 1px solid rgba(128,128,128,.3);
+        border-radius: 14px;
+        margin-bottom: 1rem;
+    }
+    .muted {opacity: .75; font-size: .9rem;}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-st.title("🧬 OncoPGx | Tamoxifen Safe-Use Explorer")
-st.caption(
-    "Clinical Pharmacology • PGx • Renal & Liver Assessment • "
-    "Drug Interactions • Pharmacovigilance"
+st.title("🧬 OncoPGx India")
+st.subheader("Tamoxifen pharmacogenomics & safety research explorer")
+
+st.markdown(
+    """
+    <div class="hero">
+    <b>Research prototype</b><br>
+    Integrates recorded clinical/laboratory data, pharmacogenomic context,
+    medication screening and transparent exploratory visualisations.
+    It does not calculate a validated endoxifen prediction or recommend
+    an individual patient's treatment or dose.
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 st.warning(
-    "RESEARCH / EDUCATION ONLY — not validated for clinical decisions. "
-    "Do not use this app to independently start, stop, switch or adjust "
-    "any medicine. Do not enter identifiable patient information."
+    "Use fictional data for demonstrations. This application is not validated "
+    "for clinical care. Do not upload identifiable patient information to a demo deployment."
 )
 
-# ----------------------- REFERENCE DATA -----------------------
 
-INTERACTIONS = {
-    "Paroxetine": (
-        "Strong CYP2D6 inhibitor",
-        "May reduce endoxifen formation.",
-        "High-priority medication review",
-        "Discuss suitable options with the prescriber; do not stop abruptly."
-    ),
-    "Fluoxetine": (
-        "Strong CYP2D6 inhibitor",
-        "May reduce endoxifen formation.",
-        "High-priority medication review",
-        "Review with prescriber/pharmacist; account for its long half-life."
-    ),
-    "Bupropion": (
-        "Strong CYP2D6 inhibitor",
-        "May reduce CYP2D6-mediated activation.",
-        "High-priority medication review",
-        "Review with prescriber/pharmacist."
-    ),
-    "Quinidine": (
-        "Strong CYP2D6 inhibitor",
-        "Can inhibit CYP2D6 activity.",
-        "Medication review",
-        "Check current interaction references and indication."
-    ),
-    "Duloxetine": (
-        "CYP2D6 inhibitor",
-        "May reduce CYP2D6 activity.",
-        "Medication review",
-        "Review the full regimen with a clinician."
-    ),
-    "Terbinafine": (
-        "CYP2D6 inhibitor",
-        "May inhibit CYP2D6.",
-        "Medication review",
-        "Review indication, duration and alternatives with a clinician."
-    ),
-    "Sertraline": (
-        "CYP2D6 inhibition varies",
-        "Effect depends on dose and clinical context.",
-        "Context-dependent review",
-        "Verify against a current clinical interaction resource."
-    ),
-    "Rifampicin / rifampin": (
-        "Strong enzyme inducer",
-        "May reduce tamoxifen exposure.",
-        "High-priority medication review",
-        "Promptly review with the prescriber/pharmacist."
-    ),
-    "Carbamazepine": (
-        "Enzyme inducer",
-        "May alter exposure to concomitant medicines.",
-        "Medication review",
-        "Verify the specific interaction in current references."
-    ),
-    "Phenytoin": (
-        "Enzyme inducer",
-        "May alter exposure to concomitant medicines.",
-        "Medication review",
-        "Verify the specific interaction in current references."
-    ),
-    "Warfarin": (
-        "Anticoagulant interaction",
-        "Tamoxifen can increase anticoagulant effect and bleeding risk.",
-        "High-priority medication review",
-        "Prescriber/anticoagulation-team review and appropriate monitoring."
-    ),
-    "Anastrozole": (
-        "Endocrine regimen",
-        "Concurrent use needs confirmation of the intended treatment plan.",
-        "Regimen review",
-        "Confirm the intended oncology regimen."
-    ),
-    "Letrozole": (
-        "Endocrine regimen",
-        "Concurrent use needs confirmation of the intended treatment plan.",
-        "Regimen review",
-        "Confirm the intended oncology regimen."
-    )
-}
+# ------------------------- HELPERS -------------------------
 
-# ----------------------- CALCULATIONS -----------------------
-
-def cockcroft_gault(age, weight_kg, scr_mg_dl, sex):
-    """Estimated creatinine clearance in mL/min."""
-    if age <= 0 or weight_kg <= 0 or scr_mg_dl <= 0:
-        return None
-    result = ((140 - age) * weight_kg) / (72 * scr_mg_dl)
-    if sex == "Female":
-        result *= 0.85
-    return result
+def safe_float(value, default=np.nan):
+    try:
+        result = float(value)
+        return result if np.isfinite(result) else default
+    except (TypeError, ValueError):
+        return default
 
 
-def ckd_epi_2021(age, scr_mg_dl, sex):
+def fmt(value, digits=1):
+    if pd.isna(value):
+        return "Not available"
+    return f"{value:.{digits}f}"
+
+
+def cockcroft_gault(age, weight_kg, creatinine_mg_dl, sex_factor):
+    """CrCl estimate in mL/min; clinical interpretation is required."""
+    if (
+        age <= 0
+        or weight_kg <= 0
+        or creatinine_mg_dl <= 0
+    ):
+        return np.nan
+
+    result = ((140 - age) * weight_kg) / (72 * creatinine_mg_dl)
+    return result * sex_factor
+
+
+def ckd_epi_2021_creatinine(age, scr, sex):
     """
-    2021 CKD-EPI creatinine equation, race-free.
-    Returns indexed eGFR in mL/min/1.73 m².
-    Not suitable for every clinical context.
+    CKD-EPI 2021 creatinine equation, eGFR in mL/min/1.73 m².
+    Uses the equation's sex-specific coefficients; not a diagnosis.
     """
-    if age <= 0 or scr_mg_dl <= 0:
-        return None
+    if age <= 0 or scr <= 0:
+        return np.nan
 
     if sex == "Female":
         k = 0.7
@@ -160,703 +106,775 @@ def ckd_epi_2021(age, scr_mg_dl, sex):
         alpha = -0.302
         sex_factor = 1.0
 
-    ratio = scr_mg_dl / k
-    egfr = (
+    return (
         142
-        * min(ratio, 1) ** alpha
-        * max(ratio, 1) ** -1.200
-        * 0.9938 ** age
+        * min(scr / k, 1) ** alpha
+        * max(scr / k, 1) ** (-1.200)
+        * (0.9938 ** age)
         * sex_factor
     )
-    return egfr
 
 
-def liver_flags(alt, ast, bilirubin, albumin, inr):
-    flags = []
-
-    if alt > 40:
-        flags.append("ALT above the illustrative reference threshold")
-    if ast > 40:
-        flags.append("AST above the illustrative reference threshold")
-    if bilirubin > 1.2:
-        flags.append("Bilirubin above the illustrative reference threshold")
-    if albumin < 3.5:
-        flags.append("Albumin below the illustrative reference threshold")
-    if inr > 1.2:
-        flags.append(
-            "INR above the illustrative threshold; interpret in context, "
-            "including anticoagulants"
-        )
-
-    if not flags:
-        flags.append(
-            "No flags using these illustrative thresholds; this does not "
-            "exclude liver disease or establish safety."
-        )
-
-    return flags
+def numeric_status(value, upper, lower=None):
+    if pd.isna(value):
+        return "Not entered"
+    if lower is not None and value < lower:
+        return "Below configured reference"
+    if value > upper:
+        return "Above configured reference"
+    return "Within configured reference"
 
 
-# ----------------------- SESSION STATE -----------------------
+def build_report(data, renal, liver_flags, interaction_rows):
+    lines = [
+        "ONCOPGX INDIA — TAMOXIFEN RESEARCH SCENARIO",
+        "=" * 55,
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"Scenario ID: {data['scenario_id']}",
+        "",
+        "IMPORTANT",
+        "This is a research/educational summary, not a diagnosis or prescription.",
+        "No validated endoxifen concentration or individual risk prediction is generated.",
+        "",
+        "CANCER PROFILE",
+        f"Intent: {data['intent']}",
+        f"Histology: {data['histology']}",
+        f"Stage: {data['stage']}",
+        f"Metastasis: {data['metastasis']}",
+        f"Tumour size (cm): {data['tumour_size']}",
+        f"Nodes: {data['nodes']}",
+        f"Grade: {data['grade']}",
+        f"ER / PR / HER2: {data['er']} / {data['pr']} / {data['her2']}",
+        "",
+        "PHARMACOGENOMICS",
+        f"CYP2D6 phenotype entered: {data['phenotype']}",
+        f"Diplotype entered: {data['diplotype']}",
+        f"Activity score entered: {data['activity_score']}",
+        "",
+        "RENAL ESTIMATES",
+        f"Cockcroft-Gault CrCl (mL/min): {fmt(renal['crcl'])}",
+        f"CKD-EPI 2021 eGFR (mL/min/1.73m²): {fmt(renal['egfr'])}",
+        "These equations are not interchangeable and do not independently determine a dose.",
+        "",
+        "RECORDED LABORATORY VALUES",
+        f"ALT: {data['alt']}",
+        f"AST: {data['ast']}",
+        f"Total bilirubin: {data['bilirubin']}",
+        f"Albumin: {data['albumin']}",
+        f"INR: {data['inr']}",
+        "",
+        "MEDICATION SCREEN",
+    ]
 
-if "pv_cases" not in st.session_state:
-    st.session_state.pv_cases = []
+    if interaction_rows:
+        for row in interaction_rows:
+            lines.append(f"- {row['Medication']}: {row['Screening note']}")
+    else:
+        lines.append("- No entered medication matched the built-in screening list.")
 
-# ----------------------- SIDEBAR INPUTS -----------------------
+    lines += [
+        "",
+        "LABORATORY FLAGS",
+        *[f"- {flag}" for flag in liver_flags],
+        "",
+        "MEASURED END OXIFEN",
+        f"Recorded measured value: {data['measured_endoxifen']}",
+        f"Unit entered: {data['endoxifen_unit']}",
+        f"Collection date: {data['endoxifen_date']}",
+        "The app does not infer or convert a measured value into a treatment decision.",
+        "",
+        "REFERENCES",
+        "CPIC CYP2D6 and tamoxifen guideline: https://pmc.ncbi.nlm.nih.gov/articles/5931215/",
+        "CPIC CYP2D6 gene resource: https://cpicpgx.org/gene/CYP2D6/",
+        "CKD-EPI 2021 equation: https://doi.org/10.1056/NEJMoa2102953",
+        "Indian genomic variation study (PMID 38426301): https://pubmed.ncbi.nlm.nih.gov/38426301/",
+    ]
+    return "\n".join(lines)
 
-st.sidebar.header("Scenario setup")
-st.sidebar.caption("Use fictional/demo data only.")
 
-scenario_id = st.sidebar.text_input("Scenario label", "DEMO-001")
+# ------------------------- SIDEBAR -------------------------
 
-indication = st.sidebar.selectbox(
+st.sidebar.title("Scenario setup")
+st.sidebar.caption("Enter fictional or appropriately de-identified research data.")
+
+scenario_id = st.sidebar.text_input("Scenario ID", "DEMO-001")
+demo_mode = st.sidebar.checkbox("Label this as demo data", value=True)
+
+intent = st.sidebar.selectbox(
     "Clinical context",
     [
-        "Adjuvant hormone-receptor-positive breast cancer",
-        "Metastatic hormone-receptor-positive breast cancer",
-        "Risk reduction / DCIS context",
-        "Other / unspecified"
-    ]
+        "Adjuvant treatment",
+        "Risk reduction",
+        "DCIS",
+        "Metastatic disease",
+        "Research-only scenario",
+    ],
 )
 
-st.sidebar.subheader("Patient parameters")
-
-age = st.sidebar.number_input(
-    "Age (years)", min_value=18, max_value=110, value=55
+histology = st.sidebar.selectbox(
+    "Histology",
+    [
+        "Invasive ductal carcinoma",
+        "Invasive lobular carcinoma",
+        "DCIS",
+        "Other / not specified",
+    ],
 )
 
-sex = st.sidebar.selectbox("Sex used in equations", ["Female", "Male"])
-
-weight = st.sidebar.number_input(
-    "Weight (kg)", min_value=20.0, max_value=300.0,
-    value=65.0, step=0.5
+stage = st.sidebar.selectbox(
+    "Recorded stage",
+    ["0", "I", "II", "III", "IV", "Unknown / not recorded"],
 )
 
+metastasis = st.sidebar.selectbox(
+    "Distant metastasis",
+    ["Not recorded", "No", "Yes"],
+)
+
+tumour_size = st.sidebar.number_input(
+    "Tumour size (cm)", min_value=0.0, max_value=30.0, value=0.0, step=0.1
+)
+
+nodes = st.sidebar.selectbox(
+    "Regional lymph nodes",
+    ["Unknown", "Negative", "Positive"],
+)
+
+grade = st.sidebar.selectbox("Tumour grade", ["Unknown", "1", "2", "3"])
+
+st.sidebar.markdown("### Receptor status")
+er = st.sidebar.selectbox("ER", ["Positive", "Negative", "Unknown"])
+pr = st.sidebar.selectbox("PR", ["Positive", "Negative", "Unknown"])
+her2 = st.sidebar.selectbox("HER2", ["Positive", "Negative", "Equivocal", "Unknown"])
+
+st.sidebar.markdown("### Demographics")
+age = st.sidebar.number_input("Age (years)", min_value=18, max_value=110, value=55)
+sex = st.sidebar.selectbox("Sex coefficient for equations", ["Female", "Male"])
+weight = st.sidebar.number_input("Weight (kg)", min_value=1.0, max_value=350.0, value=65.0)
 scr = st.sidebar.number_input(
-    "Serum creatinine (mg/dL)", min_value=0.1,
-    max_value=20.0, value=0.9, step=0.1
+    "Serum creatinine (mg/dL)", min_value=0.1, max_value=30.0, value=1.0, step=0.1
 )
 
-st.sidebar.subheader("PGx / medication review")
-
+st.sidebar.markdown("### CYP2D6")
 phenotype = st.sidebar.selectbox(
-    "CYP2D6 phenotype",
+    "Recorded CYP2D6 phenotype",
     [
         "Unknown / not tested",
-        "Normal metabolizer",
-        "Intermediate metabolizer",
         "Poor metabolizer",
-        "Ultrarapid metabolizer"
-    ]
+        "Intermediate metabolizer",
+        "Normal metabolizer",
+        "Ultrarapid metabolizer",
+        "Other / laboratory interpretation",
+    ],
 )
+diplotype = st.sidebar.text_input("CYP2D6 diplotype (optional)", placeholder="e.g. lab-reported result")
+activity_score = st.sidebar.text_input("Activity score (optional)", placeholder="Use laboratory report")
 
-medicines = st.sidebar.multiselect(
-    "Co-medications to screen",
-    list(INTERACTIONS.keys())
-)
+st.sidebar.markdown("### Medication list")
+medication_options = [
+    "Paroxetine",
+    "Fluoxetine",
+    "Bupropion",
+    "Quinidine",
+    "Terbinafine",
+    "Duloxetine",
+    "Sertraline",
+    "Escitalopram",
+    "Citalopram",
+    "Rifampicin / rifampin",
+    "Carbamazepine",
+    "Phenytoin",
+    "Warfarin",
+    "Anastrozole",
+    "Letrozole",
+    "Exemestane",
+    "Other / not listed",
+    "None recorded",
+]
+medications = st.sidebar.multiselect("Current / recent medications", medication_options)
 
-st.sidebar.subheader("Liver laboratory inputs")
-
-alt = st.sidebar.number_input(
-    "ALT (U/L)", min_value=0.0, value=25.0, step=1.0
-)
-ast = st.sidebar.number_input(
-    "AST (U/L)", min_value=0.0, value=24.0, step=1.0
-)
+st.sidebar.markdown("### Recorded laboratory results")
+alt = st.sidebar.number_input("ALT (U/L)", min_value=0.0, max_value=50000.0, value=25.0)
+ast = st.sidebar.number_input("AST (U/L)", min_value=0.0, max_value=50000.0, value=25.0)
 bilirubin = st.sidebar.number_input(
-    "Total bilirubin (mg/dL)", min_value=0.0,
-    value=0.8, step=0.1
+    "Total bilirubin (mg/dL)", min_value=0.0, max_value=100.0, value=1.0, step=0.1
 )
 albumin = st.sidebar.number_input(
-    "Albumin (g/dL)", min_value=0.1,
-    max_value=10.0, value=4.0, step=0.1
+    "Albumin (g/dL)", min_value=0.0, max_value=10.0, value=4.0, step=0.1
 )
-inr = st.sidebar.number_input(
-    "INR", min_value=0.5, max_value=15.0,
-    value=1.0, step=0.1
+inr = st.sidebar.number_input("INR", min_value=0.0, max_value=20.0, value=1.0, step=0.1)
+
+st.sidebar.markdown("### Measured endoxifen (optional)")
+measured_endoxifen = st.sidebar.text_input(
+    "Measured result (enter as reported)", placeholder="Leave blank if unavailable"
 )
+endoxifen_unit = st.sidebar.selectbox(
+    "Reported unit", ["ng/mL", "nM", "Other / not recorded"]
+)
+endoxifen_date = st.sidebar.date_input("Sample collection date", value=date.today())
 
-# ----------------------- LIVE CALCULATIONS -----------------------
-
-crcl = cockcroft_gault(age, weight, scr, sex)
-egfr = ckd_epi_2021(age, scr, sex)
-hepatic_flags = liver_flags(alt, ast, bilirubin, albumin, inr)
-
-high_priority = [
-    m for m in medicines
-    if "High-priority" in INTERACTIONS[m][2]
-]
-
-other_interactions = [
-    m for m in medicines
-    if "High-priority" not in INTERACTIONS[m][2]
-]
-
-# ----------------------- TOP METRICS -----------------------
-
-m1, m2, m3, m4 = st.columns(4)
-
-m1.metric("Estimated CrCl", f"{crcl:.1f} mL/min")
-m2.metric("Estimated eGFR", f"{egfr:.1f} mL/min/1.73 m²")
-m3.metric("Selected medicines", len(medicines))
-m4.metric("PV cases in session", len(st.session_state.pv_cases))
-
-st.caption(
-    "CrCl uses Cockcroft–Gault with entered body weight; eGFR uses "
-    "the 2021 CKD-EPI creatinine equation. Weight choice, body composition, "
-    "unstable creatinine and other clinical factors can affect interpretation. "
-    "These estimates are not dose recommendations."
+adherence = st.sidebar.selectbox(
+    "Adherence (reported)", ["Unknown", "Consistent", "Some missed doses", "Frequent missed doses"]
 )
 
-# ----------------------- TABS -----------------------
+st.sidebar.caption(
+    "The app does not assume a CYP2D6 allele frequency for Indian populations "
+    "and does not infer phenotype from ancestry."
+)
 
-tabs = st.tabs([
-    "📊 Live dashboard",
-    "🧬 Pharmacology & PGx",
-    "💊 Interactions",
-    "🩺 Kidney & liver",
-    "🛡️ Pharmacovigilance",
-    "📋 Report"
-])
 
-# =========================================================
-# TAB 1: LIVE DASHBOARD
-# =========================================================
+# ------------------------- COMPUTATION -------------------------
+
+sex_factor = 0.85 if sex == "Female" else 1.0
+crcl = cockcroft_gault(age, weight, scr, sex_factor)
+egfr = ckd_epi_2021_creatinine(age, scr, sex)
+
+renal = {"crcl": crcl, "egfr": egfr}
+
+data = {
+    "scenario_id": scenario_id,
+    "intent": intent,
+    "histology": histology,
+    "stage": stage,
+    "metastasis": metastasis,
+    "tumour_size": tumour_size,
+    "nodes": nodes,
+    "grade": grade,
+    "er": er,
+    "pr": pr,
+    "her2": her2,
+    "phenotype": phenotype,
+    "diplotype": diplotype or "Not entered",
+    "activity_score": activity_score or "Not entered",
+    "alt": alt,
+    "ast": ast,
+    "bilirubin": bilirubin,
+    "albumin": albumin,
+    "inr": inr,
+    "measured_endoxifen": measured_endoxifen or "Not entered",
+    "endoxifen_unit": endoxifen_unit,
+    "endoxifen_date": str(endoxifen_date),
+}
+
+# Medication screening is a review prompt, not a clinical decision.
+strong_cyp2d6_inhibitors = {
+    "Paroxetine": "Strong CYP2D6 inhibition; may reduce formation of endoxifen.",
+    "Fluoxetine": "Strong CYP2D6 inhibition; may reduce formation of endoxifen.",
+    "Bupropion": "Strong CYP2D6 inhibition; may reduce formation of endoxifen.",
+    "Quinidine": "Strong CYP2D6 inhibition; may reduce formation of endoxifen.",
+    "Terbinafine": "Can inhibit CYP2D6; review the medication context.",
+    "Duloxetine": "CYP2D6 inhibition potential; review the medication context.",
+    "Sertraline": "CYP2D6 inhibition varies; review dose and clinical context.",
+}
+
+inducers = {
+    "Rifampicin / rifampin": "Enzyme induction may alter tamoxifen exposure; assess with a pharmacist/clinician.",
+    "Carbamazepine": "Enzyme induction may alter drug exposure; review with a clinician.",
+    "Phenytoin": "Enzyme induction may alter drug exposure; review with a clinician.",
+}
+
+interaction_rows = []
+for medication in medications:
+    if medication in strong_cyp2d6_inhibitors:
+        interaction_rows.append(
+            {"Medication": medication, "Screening note": strong_cyp2d6_inhibitors[medication]}
+        )
+    elif medication in inducers:
+        interaction_rows.append(
+            {"Medication": medication, "Screening note": inducers[medication]}
+        )
+    elif medication == "Warfarin":
+        interaction_rows.append(
+            {
+                "Medication": medication,
+                "Screening note": "Potential clinically important interaction; review anticoagulation and monitoring with the treating team.",
+            }
+        )
+    elif medication in ["Anastrozole", "Letrozole", "Exemestane"]:
+        interaction_rows.append(
+            {
+                "Medication": medication,
+                "Screening note": "Endocrine therapy context. Do not combine, stop or switch treatment based on this screen.",
+            }
+        )
+    elif medication == "Other / not listed":
+        interaction_rows.append(
+            {
+                "Medication": medication,
+                "Screening note": "Not evaluated by the built-in medication list; check a current interaction reference.",
+            }
+        )
+
+liver_flags = []
+# These are configurable screening prompts, not universal diagnostic cutoffs.
+if alt > 40:
+    liver_flags.append("ALT exceeds the app's illustrative 40 U/L screening threshold.")
+if ast > 40:
+    liver_flags.append("AST exceeds the app's illustrative 40 U/L screening threshold.")
+if bilirubin > 1.2:
+    liver_flags.append("Bilirubin exceeds the app's illustrative 1.2 mg/dL screening threshold.")
+if albumin < 3.5:
+    liver_flags.append("Albumin is below the app's illustrative 3.5 g/dL screening threshold.")
+if inr > 1.2:
+    liver_flags.append("INR exceeds the app's illustrative 1.2 screening threshold.")
+if not liver_flags:
+    liver_flags.append("No entered value crossed the app's illustrative screening thresholds.")
+
+if demo_mode:
+    st.info("Demo mode is ON: this scenario should be treated as fictional.")
+else:
+    st.info("Demo mode is OFF. Ensure you have appropriate permission and data governance before entering real data.")
+
+
+# ------------------------- NAVIGATION -------------------------
+
+tabs = st.tabs(
+    [
+        "📊 Dashboard",
+        "🧬 PGx & PK",
+        "🎗️ Cancer profile",
+        "💊 Interactions",
+        "🩺 Kidney & liver",
+        "📝 Pharmacovigilance",
+        "📄 Report & evidence",
+    ]
+)
+
+
+# ------------------------- TAB 1: DASHBOARD -------------------------
 
 with tabs[0]:
-    st.subheader("Live scenario dashboard")
+    st.header("Scenario dashboard")
 
-    dashboard_data = pd.DataFrame({
-        "Domain": [
-            "Renal estimate",
-            "Liver lab flags",
-            "High-priority interaction flags",
-            "Other interaction flags"
-        ],
-        "Count": [
-            1 if crcl < 60 else 0,
-            len(hepatic_flags) if not (
-                len(hepatic_flags) == 1
-                and hepatic_flags[0].startswith("No flags")
-            ) else 0,
-            len(high_priority),
-            len(other_interactions)
-        ]
-    })
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Age", f"{age} years")
+    c2.metric("CYP2D6 phenotype", phenotype.split(" / ")[0])
+    c3.metric("CrCl estimate", f"{fmt(crcl)} mL/min")
+    c4.metric("eGFR estimate", f"{fmt(egfr)} mL/min/1.73m²")
 
-    fig = px.bar(
-        dashboard_data,
-        x="Domain",
-        y="Count",
-        color="Domain",
-        text="Count",
-        title="Current scenario: review indicators (not patient risk scores)"
-    )
-    fig.update_layout(
-        template="plotly_dark",
-        showlegend=False,
-        xaxis_title="",
-        yaxis_title="Count",
-        height=400
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-    renal_status = (
-        "CrCl estimate below 60 mL/min: verify context and clinical relevance."
-        if crcl < 60
-        else "CrCl estimate is 60 mL/min or above; this alone does not establish safety."
+    st.caption(
+        "Renal values are equation-derived estimates. They are not tamoxifen exposure "
+        "predictions and must not be used alone to select a treatment or dose."
     )
 
-    st.info(renal_status)
+    left, right = st.columns(2)
 
-    if high_priority:
-        st.error(
-            "High-priority medication review: " + ", ".join(high_priority)
+    with left:
+        st.subheader("Recorded cancer characteristics")
+        cancer_summary = pd.DataFrame(
+            {
+                "Field": [
+                    "Intent",
+                    "Histology",
+                    "Stage",
+                    "Metastasis",
+                    "Tumour size (cm)",
+                    "Nodes",
+                    "Grade",
+                    "ER",
+                    "PR",
+                    "HER2",
+                ],
+                "Recorded value": [
+                    intent,
+                    histology,
+                    stage,
+                    metastasis,
+                    tumour_size,
+                    nodes,
+                    grade,
+                    er,
+                    pr,
+                    her2,
+                ],
+            }
         )
-    elif medicines:
-        st.info(
-            "No high-priority flag from the selected subset. "
-            "This does not mean the regimen is interaction-free."
+        st.dataframe(cancer_summary, hide_index=True, use_container_width=True)
+
+    with right:
+        st.subheader("Recorded lab values")
+        labs = pd.DataFrame(
+            {
+                "Lab": ["ALT", "AST", "Bilirubin", "Albumin", "INR"],
+                "Value": [alt, ast, bilirubin, albumin, inr],
+                "Unit": ["U/L", "U/L", "mg/dL", "g/dL", "ratio"],
+            }
         )
-    else:
-        st.info("No co-medications selected for screening.")
+        fig_labs = px.bar(labs, x="Lab", y="Value", color="Lab", title="Entered laboratory values")
+        fig_labs.update_layout(showlegend=False)
+        st.plotly_chart(fig_labs, use_container_width=True)
 
-    st.write("**Scenario:**", scenario_id)
-    st.write("**Clinical context:**", indication)
-    st.write("**CYP2D6 phenotype:**", phenotype)
+    st.subheader("Renal equation comparison")
+    renal_chart = pd.DataFrame(
+        {
+            "Measure": ["Cockcroft–Gault CrCl", "CKD-EPI 2021 eGFR"],
+            "Value": [crcl, egfr],
+            "Unit": ["mL/min", "mL/min/1.73m²"],
+        }
+    )
+    st.dataframe(renal_chart, hide_index=True, use_container_width=True)
 
-# =========================================================
-# TAB 2: PHARMACOLOGY & PGx
-# =========================================================
+    st.caption(
+        "These renal measures use different equations and units; the chart is descriptive, "
+        "not a head-to-head measure of treatment safety."
+    )
+
+
+# ------------------------- TAB 2: PGx & PK -------------------------
 
 with tabs[1]:
-    st.subheader("Tamoxifen activation pathway")
+    st.header("CYP2D6 pharmacogenomics & tamoxifen context")
 
-    st.write(
-        "Tamoxifen is metabolised to active metabolites, including endoxifen. "
-        "CYP2D6 contributes to endoxifen formation. CYP2D6 genetic variation "
-        "and interacting medicines may influence exposure."
+    st.markdown("### Recorded genotype / phenotype")
+    pgx = pd.DataFrame(
+        [
+            ["Phenotype", phenotype],
+            ["Diplotype", diplotype or "Not entered"],
+            ["Activity score", activity_score or "Not entered"],
+        ],
+        columns=["Field", "Entered value"],
     )
+    st.dataframe(pgx, hide_index=True, use_container_width=True)
 
-    fig = go.Figure()
-
-    nodes = [
-        (0.08, 0.65, "Tamoxifen", "#1d4ed8"),
-        (0.34, 0.65, "N-desmethyl-\ntamoxifen", "#0f766e"),
-        (0.61, 0.65, "Endoxifen", "#0f766e"),
-        (0.88, 0.65, "Clinical context", "#475569"),
-        (0.35, 0.18, "CYP2D6 phenotype", "#7c3aed"),
-        (0.65, 0.18, "Drug interactions", "#b45309")
-    ]
-
-    for x, y, label, color in nodes:
-        fig.add_shape(
-            type="rect",
-            x0=x - 0.09, x1=x + 0.09,
-            y0=y - 0.11, y1=y + 0.11,
-            line=dict(color=color, width=2),
-            fillcolor=color
+    if phenotype == "Unknown / not tested":
+        st.info(
+            "No CYP2D6 result was entered. The app will not infer a genotype or phenotype "
+            "from ethnicity, geography or other demographic data."
         )
-        fig.add_annotation(
-            x=x, y=y, text=label.replace("\n", "<br>"),
-            showarrow=False, font=dict(color="white", size=11)
+    elif phenotype == "Poor metabolizer":
+        st.warning(
+            "CPIC guidance describes lower endoxifen exposure in CYP2D6 poor metabolizers. "
+            "This is context for a clinician/pharmacist review, not an automatic treatment recommendation."
         )
-
-    for x0, y0, x1, y1 in [
-        (0.17, 0.65, 0.25, 0.65),
-        (0.43, 0.65, 0.52, 0.65),
-        (0.70, 0.65, 0.79, 0.65),
-        (0.36, 0.30, 0.56, 0.52),
-        (0.65, 0.30, 0.63, 0.52)
-    ]:
-        fig.add_annotation(
-            x=x1, y=y1, ax=x0, ay=y0,
-            xref="x", yref="y", axref="x", ayref="y",
-            showarrow=True, arrowhead=3,
-            arrowcolor="#a9c4df", arrowwidth=2
-        )
-
-    fig.update_layout(
-        template="plotly_dark", height=380,
-        xaxis=dict(visible=False, range=[0, 1]),
-        yaxis=dict(visible=False, range=[0, 0.95]),
-        showlegend=False, margin=dict(l=10, r=10, t=20, b=10)
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-    phenotype_notes = {
-        "Unknown / not tested":
-            "No genotype inference is possible from an unknown result.",
-        "Normal metabolizer":
-            "Usually indicates expected CYP2D6 activity based on the reported result.",
-        "Intermediate metabolizer":
-            "Reduced CYP2D6 activity may affect endoxifen formation.",
-        "Poor metabolizer":
-            "Little or no CYP2D6 activity may be expected.",
-        "Ultrarapid metabolizer":
-            "Higher-than-normal CYP2D6 activity may be expected."
-    }
-
-    st.markdown("#### Selected phenotype")
-    st.write(phenotype_notes[phenotype])
-
-    st.warning(
-        "Phenotype labels require a valid laboratory result and appropriate "
-        "allele/activity-score interpretation. This app does not infer genotype "
-        "from ancestry or predict endoxifen concentration."
-    )
-
-# =========================================================
-# TAB 3: DRUG INTERACTION CHECKER
-# =========================================================
-
-with tabs[2]:
-    st.subheader("Drug interaction review")
-
-    if medicines:
-        rows = []
-        for medicine in medicines:
-            group, mechanism, flag, action_text = INTERACTIONS[medicine]
-            rows.append({
-                "Medicine": medicine,
-                "Mechanism/group": group,
-                "Review flag": flag,
-                "Potential concern": mechanism,
-                "Workflow action": action_text
-            })
-
-        interaction_df = pd.DataFrame(rows)
-        st.dataframe(
-            interaction_df,
-            use_container_width=True,
-            hide_index=True
-        )
-
-        st.download_button(
-            "Download interaction table (CSV)",
-            interaction_df.to_csv(index=False).encode("utf-8"),
-            "tamoxifen_interaction_review.csv",
-            "text/csv"
+    elif phenotype == "Intermediate metabolizer":
+        st.warning(
+            "Intermediate metabolizer status can be associated with altered endoxifen exposure. "
+            "Interpret the laboratory result using current guidance and the patient's full context."
         )
     else:
-        st.info("Select medicines in the sidebar to populate the checker.")
+        st.info(
+            "Phenotype has been recorded as entered. A phenotype label alone does not establish "
+            "the patient's endoxifen concentration or clinical outcome."
+        )
 
-    st.caption(
-        "This is a curated screening subset, not a complete interaction database. "
-        "Confirm each finding using current product information and clinical references."
+    st.markdown("### Measured value versus model estimate")
+    st.write(
+        "**Measured endoxifen:** entered by the user only, with the unit and sample date. "
+        "No value is generated when a result is missing."
     )
-
-# =========================================================
-# TAB 4: KIDNEY & LIVER
-# =========================================================
-
-with tabs[3]:
-    st.subheader("Renal function estimates")
-
-    r1, r2 = st.columns(2)
-    r1.metric("Cockcroft–Gault CrCl", f"{crcl:.1f} mL/min")
-    r2.metric("CKD-EPI 2021 eGFR", f"{egfr:.1f} mL/min/1.73 m²")
+    if measured_endoxifen.strip():
+        st.success(
+            f"Recorded result: {measured_endoxifen} {endoxifen_unit} "
+            f"(sample date: {endoxifen_date})."
+        )
+    else:
+        st.info("No measured endoxifen result entered.")
 
     st.write(
-        "**Interpretation note:** CrCl and eGFR are different estimates. "
-        "They should not be substituted for one another without considering "
-        "the clinical question. eGFR is indexed to a standard body surface area."
+        "**Model-estimated endoxifen:** unavailable. No validated predictive model or "
+        "calibrated patient-level dataset is configured in this application."
     )
 
-    renal_df = pd.DataFrame({
-        "Measure": ["CrCl (Cockcroft–Gault)", "eGFR (CKD-EPI 2021)"],
-        "Value": [crcl, egfr],
-        "Units": ["mL/min", "mL/min/1.73 m²"]
-    })
-
-    fig = px.bar(
-        renal_df,
-        x="Measure",
-        y="Value",
-        text="Value",
-        title="Estimated renal measures (different units/interpretations)"
+    st.markdown("### Conceptual pharmacokinetic pathway")
+    pathway = pd.DataFrame(
+        {
+            "Step": [
+                "Tamoxifen administered",
+                "CYP-mediated metabolism",
+                "Endoxifen formed",
+                "Measured concentration",
+                "Clinical interpretation",
+            ],
+            "Status": [
+                "Drug regimen not modelled",
+                "Affected by genotype and interactions",
+                "Not numerically predicted",
+                "Optional laboratory input",
+                "Requires clinical context",
+            ],
+        }
     )
-    fig.update_layout(template="plotly_dark", height=350)
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.divider()
-    st.subheader("Liver laboratory review")
-
-    liver_df = pd.DataFrame({
-        "Test": ["ALT", "AST", "Bilirubin", "Albumin", "INR"],
-        "Entered value": [alt, ast, bilirubin, albumin, inr],
-        "Unit": ["U/L", "U/L", "mg/dL", "g/dL", "ratio"]
-    })
-
-    st.dataframe(liver_df, use_container_width=True, hide_index=True)
-
-    st.markdown("#### Illustrative flags")
-
-    for flag in hepatic_flags:
-        st.write("•", flag)
+    st.dataframe(pathway, hide_index=True, use_container_width=True)
 
     st.caption(
-        "Thresholds here are illustrative and are not laboratory-specific "
-        "reference ranges. Interpret with the lab's reference intervals, trends, "
-        "symptoms, medicines and clinical history."
+        "The app deliberately does not convert CYP2D6 phenotype into a fabricated ng/mL "
+        "value, risk percentage or dosing suggestion."
     )
 
-    with st.expander("Optional: Child–Pugh score (cirrhosis context only)"):
-        st.write(
-            "Use only when a clinician considers Child–Pugh appropriate for "
-            "established chronic liver disease/cirrhosis. It is not a general "
-            "liver toxicity score."
-        )
 
-        cp_bilirubin = st.selectbox(
-            "Bilirubin category",
-            ["<2 mg/dL", "2–3 mg/dL", ">3 mg/dL"]
-        )
-        cp_albumin = st.selectbox(
-            "Albumin category",
-            [">3.5 g/dL", "2.8–3.5 g/dL", "<2.8 g/dL"]
-        )
-        cp_inr = st.selectbox(
-            "INR category",
-            ["<1.7", "1.7–2.3", ">2.3"]
-        )
-        cp_ascites = st.selectbox(
-            "Ascites (clinical assessment)",
-            ["Absent", "Mild/controlled", "Moderate/severe"]
-        )
-        cp_enceph = st.selectbox(
-            "Hepatic encephalopathy (clinical assessment)",
-            ["Absent", "Grade I–II", "Grade III–IV"]
-        )
+# ------------------------- TAB 3: CANCER PROFILE -------------------------
 
-        score_map = {
-            "<2 mg/dL": 1, "2–3 mg/dL": 2, ">3 mg/dL": 3,
-            ">3.5 g/dL": 1, "2.8–3.5 g/dL": 2, "<2.8 g/dL": 3,
-            "<1.7": 1, "1.7–2.3": 2, ">2.3": 3,
-            "Absent": 1, "Mild/controlled": 2, "Moderate/severe": 3,
-            "Grade I–II": 2, "Grade III–IV": 3
-        }
+with tabs[2]:
+    st.header("Cancer profile")
 
-        cp_score = (
-            score_map[cp_bilirubin]
-            + score_map[cp_albumin]
-            + score_map[cp_inr]
-            + score_map[cp_ascites]
-            + score_map[cp_enceph]
-        )
+    profile = {
+        "Intent": intent,
+        "Histology": histology,
+        "Stage": stage,
+        "Distant metastasis": metastasis,
+        "Tumour size (cm)": tumour_size,
+        "Nodes": nodes,
+        "Grade": grade,
+        "ER": er,
+        "PR": pr,
+        "HER2": her2,
+    }
 
-        cp_class = (
-            "Class A (5–6)" if cp_score <= 6
-            else "Class B (7–9)" if cp_score <= 9
-            else "Class C (10–15)"
-        )
+    st.dataframe(
+        pd.DataFrame(list(profile.items()), columns=["Feature", "Recorded value"]),
+        hide_index=True,
+        use_container_width=True,
+    )
 
-        st.metric("Calculated Child–Pugh points", cp_score)
-        st.write("**Category:**", cp_class)
+    if er == "Negative":
         st.warning(
-            "Verify the score and inputs clinically. INR can be confounded by "
-            "anticoagulation, and this result does not generate a tamoxifen dose."
+            "ER is recorded as negative. Confirm pathology and the clinical indication "
+            "for tamoxifen with the treating oncology team; this app does not decide eligibility."
         )
+    elif er == "Unknown":
+        st.info("ER status is unknown. Verify the pathology report before interpreting endocrine therapy context.")
+    else:
+        st.info("ER is recorded as positive. This is not, by itself, a treatment recommendation.")
 
-# =========================================================
-# TAB 5: PHARMACOVIGILANCE
-# =========================================================
+    st.caption(
+        "Stage, receptor status and tumour characteristics are descriptive inputs. "
+        "The app does not calculate recurrence risk, survival, or treatment benefit."
+    )
+
+
+# ------------------------- TAB 4: INTERACTIONS -------------------------
+
+with tabs[3]:
+    st.header("Medication interaction screening")
+
+    if interaction_rows:
+        interaction_df = pd.DataFrame(interaction_rows)
+        st.dataframe(interaction_df, hide_index=True, use_container_width=True)
+        csv_interactions = interaction_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "Download interaction screen CSV",
+            data=csv_interactions,
+            file_name=f"{scenario_id}_interactions.csv",
+            mime="text/csv",
+        )
+    else:
+        st.info("No listed medication generated a built-in screening note.")
+        st.write("Selected medications:", ", ".join(medications) if medications else "None entered")
+
+    st.markdown("### How to interpret the screen")
+    st.markdown(
+        """
+        - CYP2D6 inhibitors may reduce endoxifen formation.
+        - Enzyme inducers may alter drug exposure; the effect should be reviewed using a
+          current drug-interaction resource.
+        - The presence of a medicine in this list does not prove a clinically significant
+          interaction in an individual.
+        - Do not stop, substitute or change a prescribed medicine based on this screen.
+        """
+    )
+
+    st.markdown(
+        "[CPIC CYP2D6 guideline](https://pmc.ncbi.nlm.nih.gov/articles/5931215/) · "
+        "[CPIC CYP2D6 resource](https://cpicpgx.org/gene/CYP2D6/)"
+    )
+
+
+# ------------------------- TAB 5: KIDNEY & LIVER -------------------------
 
 with tabs[4]:
-    st.subheader("Pharmacovigilance case register")
+    st.header("Kidney and liver monitoring context")
 
-    event = st.selectbox(
-        "Adverse event / symptom",
-        [
-            "Hot flashes / sweating",
-            "Nausea / fatigue",
-            "Abnormal vaginal bleeding",
-            "Unilateral leg swelling / pain",
-            "Sudden breathlessness / chest pain",
-            "Stroke-like symptoms",
-            "Yellow skin/eyes or dark urine",
-            "Other / unspecified"
-        ]
-    )
+    a, b = st.columns(2)
 
-    onset = st.selectbox(
-        "Time to onset",
-        ["Unknown", "Within 24 hours", "Days", "Weeks", "Months", "Long-term"]
-    )
-
-    severity = st.selectbox(
-        "Reported severity", ["Mild", "Moderate", "Severe", "Unknown"]
-    )
-
-    seriousness = st.selectbox(
-        "Seriousness assessment",
-        [
-            "Not assessed",
-            "Not known to be serious",
-            "Potentially serious — clinician assessment needed",
-            "Hospitalisation / life-threatening / other serious criterion reported"
-        ]
-    )
-
-    outcome = st.selectbox(
-        "Outcome",
-        ["Ongoing", "Resolved", "Improving", "Unknown", "Fatal outcome reported"]
-    )
-
-    action = st.selectbox(
-        "Action taken",
-        [
-            "Unknown / not recorded",
-            "Clinician contacted",
-            "Emergency care sought",
-            "Medicine changed by clinician",
-            "Other"
-        ]
-    )
-
-    event_notes = st.text_area(
-        "Non-identifying case notes",
-        placeholder="Optional: relevant timing, context, other medicines. No names or IDs."
-    )
-
-    if event in [
-        "Sudden breathlessness / chest pain",
-        "Stroke-like symptoms"
-    ]:
-        st.error(
-            "Emergency warning sign: seek emergency medical care immediately."
+    with a:
+        st.subheader("Kidney equations")
+        st.metric("Cockcroft–Gault CrCl", f"{fmt(crcl)} mL/min")
+        st.metric("CKD-EPI 2021 eGFR", f"{fmt(egfr)} mL/min/1.73m²")
+        st.write(
+            "CrCl and eGFR are different estimates. Interpretation depends on the clinical "
+            "setting, body composition, trends, and the purpose for which the equation is used."
         )
-    elif event == "Unilateral leg swelling / pain":
-        st.error(
-            "Possible blood-clot warning sign: seek urgent medical assessment."
+
+    with b:
+        st.subheader("Liver laboratory screening")
+        liver_df = pd.DataFrame(
+            {
+                "Test": ["ALT", "AST", "Total bilirubin", "Albumin", "INR"],
+                "Entered result": [alt, ast, bilirubin, albumin, inr],
+                "Illustrative screen": [
+                    numeric_status(alt, 40),
+                    numeric_status(ast, 40),
+                    numeric_status(bilirubin, 1.2),
+                    numeric_status(albumin, 10, 3.5),
+                    numeric_status(inr, 1.2),
+                ],
+            }
         )
-    elif event in [
-        "Abnormal vaginal bleeding",
-        "Yellow skin/eyes or dark urine"
-    ]:
-        st.warning("Prompt clinical assessment is important.")
+        st.dataframe(liver_df, hide_index=True, use_container_width=True)
 
-    if st.button("➕ Add case to this session", type="primary"):
-        case = {
-            "Case label": scenario_id,
-            "Report date": date.today().isoformat(),
-            "Event": event,
-            "Onset": onset,
-            "Severity": severity,
-            "Seriousness": seriousness,
-            "Outcome": outcome,
-            "Action": action,
-            "Notes": event_notes
-        }
-        st.session_state.pv_cases.append(case)
-        st.success("Case added to the current session.")
+    st.markdown("### Review prompts")
+    for flag in liver_flags:
+        st.write(f"- {flag}")
 
-    st.markdown("#### Saved cases")
+    st.caption(
+        "The laboratory thresholds shown here are illustrative software flags, not universal "
+        "reference ranges or diagnostic criteria. Interpret results against the reporting "
+        "laboratory's reference interval, symptoms, history and clinician assessment. "
+        "This app does not calculate Child–Pugh class or diagnose liver disease."
+    )
+
+
+# ------------------------- TAB 6: PHARMACOVIGILANCE -------------------------
+
+with tabs[5]:
+    st.header("Pharmacovigilance case register")
+    st.write(
+        "Add a de-identified safety report for this session. This register is held only in "
+        "Streamlit session state and is not a secure, persistent pharmacovigilance database."
+    )
+
+    if "pv_cases" not in st.session_state:
+        st.session_state.pv_cases = []
+
+    with st.form("pv_form", clear_on_submit=True):
+        pv_id = st.text_input("Case reference", placeholder="e.g. PV-DEMO-001")
+        suspected_drug = st.text_input("Suspected drug", value="Tamoxifen")
+        event_term = st.text_input("Adverse event / reaction term")
+        onset_date = st.date_input("Event onset date", value=date.today())
+        seriousness = st.selectbox(
+            "Seriousness (reported)",
+            ["Not assessed", "Non-serious", "Serious"],
+        )
+        outcome = st.selectbox(
+            "Outcome (reported)",
+            [
+                "Unknown",
+                "Recovered",
+                "Recovering",
+                "Not recovered",
+                "Recovered with sequelae",
+                "Fatal",
+            ],
+        )
+        reporter_notes = st.text_area(
+            "De-identified narrative",
+            placeholder="Enter only information suitable for this demo register.",
+        )
+        submit_pv = st.form_submit_button("Add case to this session")
+
+    if submit_pv:
+        if not pv_id.strip() or not event_term.strip():
+            st.error("Enter both a case reference and an adverse event term.")
+        else:
+            st.session_state.pv_cases.append(
+                {
+                    "Case reference": pv_id.strip(),
+                    "Scenario ID": scenario_id,
+                    "Suspected drug": suspected_drug.strip(),
+                    "Event term": event_term.strip(),
+                    "Onset date": str(onset_date),
+                    "Seriousness": seriousness,
+                    "Outcome": outcome,
+                    "Narrative": reporter_notes.strip(),
+                    "Created at": datetime.now().isoformat(timespec="minutes"),
+                }
+            )
+            st.success("Case added to the current session.")
 
     if st.session_state.pv_cases:
         pv_df = pd.DataFrame(st.session_state.pv_cases)
         st.dataframe(pv_df, use_container_width=True, hide_index=True)
-
         st.download_button(
-            "Download PV register (CSV)",
-            pv_df.to_csv(index=False).encode("utf-8"),
-            "tamoxifen_pv_register.csv",
-            "text/csv"
+            "Download PV register CSV",
+            data=pv_df.to_csv(index=False).encode("utf-8"),
+            file_name="oncopgx_pv_register.csv",
+            mime="text/csv",
         )
 
-        pv_text = pv_df.to_string(index=False)
-
-        st.download_button(
-            "Download PV summary (TXT)",
-            pv_text.encode("utf-8"),
-            "tamoxifen_pv_summary.txt",
-            "text/plain"
-        )
-
-        if st.button("Clear session cases"):
+        if st.button("Clear session PV register"):
             st.session_state.pv_cases = []
             st.rerun()
     else:
-        st.info(
-            "No cases saved yet. Add a demo case above. Entries persist only "
-            "for this active app session and are not a permanent database."
-        )
+        st.info("No pharmacovigilance cases recorded in this session.")
 
-    st.caption(
-        "This is not an official adverse-event submission. Follow local "
-        "pharmacovigilance reporting requirements and verify cases before submission."
+    st.warning(
+        "This feature does not submit a report to a regulator, hospital or safety database. "
+        "Follow applicable institutional and regulatory reporting procedures."
     )
 
-# =========================================================
-# TAB 6: REPORT GENERATOR
-# =========================================================
 
-with tabs[5]:
-    st.subheader("Scenario report generator")
+# ------------------------- TAB 7: REPORT & EVIDENCE -------------------------
 
-    liver_flag_count = len([
-        x for x in hepatic_flags
-        if not x.startswith("No flags")
-    ])
+with tabs[6]:
+    st.header("Export report & evidence")
 
-    report_lines = [
-        "ONCOPGX | TAMOXIFEN SAFE-USE EXPLORER",
-        "EDUCATIONAL / RESEARCH SCENARIO REPORT",
-        "=" * 55,
-        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-        f"Scenario label: {scenario_id}",
-        f"Clinical context: {indication}",
-        "",
-        "RENAL ESTIMATES",
-        f"Cockcroft-Gault CrCl: {crcl:.1f} mL/min",
-        f"CKD-EPI 2021 eGFR: {egfr:.1f} mL/min/1.73 m²",
-        "",
-        "LIVER LAB INPUTS",
-        f"ALT: {alt} U/L",
-        f"AST: {ast} U/L",
-        f"Total bilirubin: {bilirubin} mg/dL",
-        f"Albumin: {albumin} g/dL",
-        f"INR: {inr}",
-        "Liver flags:"
-    ]
-
-    report_lines += [f"- {x}" for x in hepatic_flags]
-
-    report_lines += [
-        "",
-        "PHARMACOGENOMICS",
-        f"CYP2D6 phenotype entered: {phenotype}",
-        "No endoxifen concentration or toxicity probability calculated.",
-        "",
-        "MEDICATION INTERACTION REVIEW"
-    ]
-
-    if medicines:
-        for med in medicines:
-            group, mechanism, flag, action_text = INTERACTIONS[med]
-            report_lines.append(
-                f"- {med}: {flag}. {mechanism} Action: {action_text}"
-            )
-    else:
-        report_lines.append("- No medicines selected.")
-
-    report_lines += [
-        "",
-        "PHARMACOVIGILANCE",
-        f"Cases saved in this session: {len(st.session_state.pv_cases)}",
-        "",
-        "LIMITATIONS",
-        "- Not a validated clinical decision-support system.",
-        "- Estimates and flags do not establish safety or diagnose disease.",
-        "- No automatic dose changes or treatment switching.",
-        "- Interaction list is not exhaustive.",
-        "- Verify with current guidelines, product information and a clinician.",
-        ""
-    ]
-
-    report_text = "\n".join(report_lines)
-
-    st.text_area(
-        "Preview report",
-        report_text,
-        height=450
-    )
+    report_text = build_report(data, renal, liver_flags, interaction_rows)
 
     st.download_button(
-        "⬇️ Download scenario report (TXT)",
-        report_text.encode("utf-8"),
-        f"{scenario_id}_tamoxifen_report.txt",
-        "text/plain"
+        "📄 Download scenario report (TXT)",
+        data=report_text,
+        file_name=f"{scenario_id}_oncopgx_report.txt",
+        mime="text/plain",
+        use_container_width=True,
     )
 
-    summary_df = pd.DataFrame([{
-        "Scenario": scenario_id,
-        "Clinical context": indication,
-        "Age": age,
-        "Sex used in equations": sex,
-        "Weight kg": weight,
-        "Serum creatinine mg/dL": scr,
-        "CrCl mL/min": round(crcl, 1),
-        "eGFR mL/min/1.73m2": round(egfr, 1),
-        "CYP2D6 phenotype": phenotype,
-        "Selected medicines": "; ".join(medicines),
-        "High-priority interaction flags": len(high_priority),
-        "Liver lab flags": liver_flag_count,
-        "PV cases in session": len(st.session_state.pv_cases)
-    }])
-
+    scenario_df = pd.DataFrame(
+        [{"Field": key, "Value": str(value)} for key, value in data.items()]
+    )
     st.download_button(
         "⬇️ Download scenario data (CSV)",
-        summary_df.to_csv(index=False).encode("utf-8"),
-        f"{scenario_id}_scenario_data.csv",
-        "text/csv"
+        data=scenario_df.to_csv(index=False).encode("utf-8"),
+        file_name=f"{scenario_id}_scenario.csv",
+        mime="text/csv",
+        use_container_width=True,
     )
 
-# ----------------------- FOOTER -----------------------
+    st.subheader("Report preview")
+    st.text_area("Generated report", value=report_text, height=380)
+
+    st.subheader("Evidence and references")
+
+    st.markdown(
+        """
+        1. **CPIC CYP2D6–tamoxifen guideline (2018)**  
+           [Read guideline](https://pmc.ncbi.nlm.nih.gov/articles/5931215/)  
+           Describes CYP2D6-related endoxifen exposure and genotype-informed guidance.
+           Clinical outcome evidence and individual treatment decisions require context.
+
+        2. **CPIC CYP2D6 gene resource**  
+           [Read resource](https://cpicpgx.org/gene/CYP2D6/)  
+           Pharmacogenetic information and guideline resources.
+
+        3. **CKD-EPI 2021 creatinine equation**  
+           [Read publication](https://doi.org/10.1056/NEJMoa2102953)  
+           Equation reference for eGFR; not a tamoxifen dosing algorithm.
+
+        4. **Indian genomic variation study (PMID 38426301)**  
+           [Read PubMed record](https://pubmed.ncbi.nlm.nih.gov/38426301/)  
+           Supports the importance of population-level genomic diversity and cautions
+           against assuming one CYP2D6 allele distribution for all Indian populations.
+        """
+    )
+
+    st.subheader("Model limitations")
+    st.markdown(
+        """
+        - No externally validated endoxifen prediction model is implemented.
+        - No recurrence, toxicity probability, survival or dose-response prediction is generated.
+        - CYP2D6 phenotype is recorded from the user/lab and is not inferred.
+        - Medication screening is a limited rule-based aid, not a comprehensive interaction checker.
+        - Kidney and liver outputs are equation-derived values and illustrative laboratory flags.
+        - Data entered in this app are not automatically saved to a secure clinical database.
+        - Before research or clinical deployment, add validation, versioning, audit trails,
+          access controls, consent/data-governance processes and appropriate clinical review.
+        """
+    )
+
+
+# ------------------------- FOOTER -------------------------
 
 st.divider()
 st.caption(
-    "Evidence boundary: educational prototype only. "
-    "For research use, document the version, data sources, validation plan, "
-    "intended population and clinical oversight before evaluating performance."
+    "OncoPGx India • Research prototype • No patient-specific dose or treatment decisions. "
+    "Verify laboratory units, equations, clinical context and references before use."
 )
