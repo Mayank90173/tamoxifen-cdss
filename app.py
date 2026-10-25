@@ -57,7 +57,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# ─── HIGH-DENSITY INPUT REGISTRATION GRID (TWO COLUMN WORKSPACE) ──────────────
+# ─── DATA INPUT GRID SETUP (TWO COLUMN WORKSPACE) ──────────────────────────────
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
@@ -95,24 +95,19 @@ with col1:
     compliance = st.slider("Patient Adherence Index Verification (MEMS %)", 10, 100, 100) / 100.0
 
 # ─── REAL-TIME QUANTITATIVE SYSTEMS PHARMACOLOGY LOGIC ENGINE ─────────────────
-# 1. Kidney Function Metrics (Cockcroft-Gault Equation)
 g_mult = 0.85 if gender == "Female" else 1.0
 computed_crcl = round(((140 - age) * weight) / (72 * creatinine) * g_mult, 1)
-
-# Clearance rate constant calculation based on renal performance values
 k_e_base = 0.022 if computed_crcl >= 60 else 0.040 if computed_crcl >= 30 else 0.065
 
-# 2. Hepatic Metabolic Flux Processing (Aligned with Hwang et al. 13,001 Patient Cohort)
 if "Poor" in cyp2d6_pheno:
     metabolic_velocity = 8.8
 elif "Intermediate" in cyp2d6_pheno:
-    metabolic_velocity = 14.2 # South Asian intermediate signature marker
+    metabolic_velocity = 14.2 
 elif "Ultra-rapid" in cyp2d6_pheno:
     metabolic_velocity = 31.8
 else:
     metabolic_velocity = 22.3 
 
-# 3. Phenoconversion & Secondary Drug Interactions Loop
 is_phenoconverted = False
 if "Paroxetine" in cyp2d6_inhib:
     metabolic_velocity = 8.8 
@@ -127,7 +122,7 @@ elif "Ketoconazole" in cyp3a4_mod:
 
 final_predicted_steady_state = round(metabolic_velocity * compliance, 2)
 
-# 4. Multi-Guideline Adaptive Clinical Decision Engine (CPIC v2.0 / ASCO / ESMO)
+# ─── REAL-TIME CLINICAL MATRIX RESOLUTION ENGINE ─────────────────────────────
 guideline_tags = []
 primary_recommendation = ""
 alternative_options = ""
@@ -174,3 +169,9 @@ else:
         else:
             primary_recommendation = "Aromatase Inhibitor Primary Corridor Approved"
             regimen_specification = "Anastrozole 1 mg Oral QD"
+            alternative_options = "Tamoxifen Malate 20 mg QD if severe osteoporosis or accelerated T-Score degradation breaches safety thresholds."
+            duration_protocol = base_duration
+            guideline_tags = ["ESMO Guidelines", "ASCO Primary Adjuvant Protocols"]
+
+# ─── REAL-TIME VISUALIZATIONS SECTION (RIGHT COLUMNS DISPLAY) ─────────────────
+with col2:
