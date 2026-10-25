@@ -4,3 +4,8 @@ pandas
 reportlab
 openpyxl
 plotly
+streamlit
+pandas
+numpy
+plotly
+scikit-learn
