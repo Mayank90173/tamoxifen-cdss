@@ -140,7 +140,7 @@ sop_status = "NOMINAL PIPELINE"
 sop_rationale = "Patient exhibits balanced genomic clearance parameters. Standard clinical track approved."
 
 if "Negative" in er_status:
-    primary_recommendation = "❌ DISCONTINUE ENDOCRINE THERAPY TRAJECTORY"
+    primary_recommendation = "DISCONTINUE ENDOCRINE THERAPY TRAJECTORY"
     regimen_specification = "Discontinue Endocrine Intervention Protocol"
     alternative_options = "Cytotoxic Chemotherapy (Anthracyclines/Taxanes) + Targeted Biologics based on HER2/PD-L1 Status."
     duration_protocol = "Immediate Termination of Endocrine Modeling"
@@ -157,7 +157,7 @@ else:
 
     if "Premenopausal Status" in menopausal_status:
         if "Poor" in cyp2d6_pheno or is_phenoconverted:
-            primary_recommendation = "🔄 Ovarian Function Suppression (OFS) + Aromatase Inhibitor (AI) Class Rotation"
+            primary_recommendation = "Ovarian Function Suppression (OFS) + Aromatase Inhibitor (AI) Class Rotation"
             regimen_specification = "Letrozole 2.5 mg Oral QD + Goserelin (LHRH Agonist) 3.6 mg SC Depot Every 28 Days"
             alternative_options = "Tamoxifen Protocol Adjustment to 40mg Daily if AI is contraindicated due to osteoporosis."
             duration_protocol = f"{base_duration} (OFS strictly maintained for minimum 5 years)."
@@ -165,7 +165,7 @@ else:
             sop_status = "DRUG CLASS VARIATION ROUTING"
             sop_rationale = "Active Endoxifen concentration falls below the 16 nM floor due to poor metabolizer profile or drug interaction. Overriding standard Tamoxifen."
         elif "Intermediate" in cyp2d6_pheno:
-            primary_recommendation = "⚠️ Tamoxifen Standard Protocol + Accelerated Serum TDM Monitoring Matrix"
+            primary_recommendation = "Tamoxifen Standard Protocol + Accelerated Serum TDM Monitoring Matrix"
             regimen_specification = "Tamoxifen Malate 20 mg Oral QD"
             alternative_options = "Dose-Escalation to 40 mg Oral QD (Split 20mg BID) if subsequent 90-day TDM reflects values < 16 nM."
             duration_protocol = base_duration
