@@ -1,96 +1,683 @@
+
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 from datetime import date
 
-st.set_page_config(page_title="OncoPGx | Tamoxifen Safe-Use Explorer", page_icon="🧬", layout="wide")
+st.set_page_config(
+    page_title="OncoPGx | Tamoxifen Safe-Use Explorer",
+    page_icon="🧬",
+    layout="wide"
+)
+
 st.markdown("""
 <style>
-.stApp{background:#07111f;color:#eef5ff}
-[data-testid="stSidebar"]{background:#0b1b2c}
-[data-testid="stMetric"]{background:#102238;border:1px solid #29435d;padding:12px;border-radius:12px}
-</style>""", unsafe_allow_html=True)
+.stApp {
+    background-color: #07111f;
+    color: #eef5ff;
+}
+[data-testid="stSidebar"] {
+    background-color: #0b1b2c;
+}
+[data-testid="stMetric"] {
+    background: #102238;
+    border: 1px solid #29435d;
+    padding: 12px;
+    border-radius: 12px;
+}
+</style>
+""", unsafe_allow_html=True)
 
 st.title("🧬 OncoPGx | Tamoxifen Safe-Use Explorer")
-st.caption("Advanced pharmacology • Pharmacogenomics • Drug interactions • Pharmacovigilance")
-st.error("RESEARCH / EDUCATION PROTOTYPE ONLY. Not validated for clinical use. It cannot determine individual safety, recommend a dose, or replace an oncologist/pharmacist. Never change medicines using this app.")
+st.caption(
+    "Pharmacogenomics • Clinical Pharmacology • "
+    "Drug Interactions • Pharmacovigilance"
+)
+st.error(
+    "RESEARCH / EDUCATION PROTOTYPE ONLY. "
+    "Not validated for clinical use. Do not use this app "
+    "to prescribe, change doses, or stop medicines."
+)
+
+# ---------------------------------------------------------
+# REFERENCE DATA
+# ---------------------------------------------------------
 
 INTERACTIONS = {
-"Paroxetine": ("Strong CYP2D6 inhibitor","May markedly inhibit CYP2D6-mediated endoxifen formation.","HIGH-PRIORITY REVIEW","Prescriber/pharmacist review; do not stop an antidepressant abruptly."),
-"Fluoxetine": ("Strong CYP2D6 inhibitor","May markedly inhibit CYP2D6-mediated endoxifen formation; effects may persist due to long half-life.","HIGH-PRIORITY REVIEW","Prescriber/pharmacist review; do not stop or switch psychiatric medicine without a plan."),
-"Bupropion": ("Strong CYP2D6 inhibitor","May reduce CYP2D6 activity and endoxifen formation.","HIGH-PRIORITY REVIEW","Prescriber/pharmacist review of alternatives and clinical context."),
-"Quinidine": ("Strong CYP2D6 inhibitor","May substantially inhibit CYP2D6.","HIGH-PRIORITY REVIEW","Check indication and alternatives with prescriber/pharmacist."),
-"Duloxetine": ("Moderate CYP2D6 inhibitor","May reduce CYP2D6 activity; relevance depends on dose and patient context.","REVIEW","Review with prescriber/pharmacist; do not change independently."),
-"Terbinafine": ("CYP2D6 inhibitor","Can inhibit CYP2D6 and may affect tamoxifen activation.","REVIEW","Review indication, duration and alternatives with prescriber/pharmacist."),
-"Sertraline": ("CYP2D6 inhibition varies","Generally less inhibitory than paroxetine/fluoxetine; context and dose matter.","CONTEXT-DEPENDENT REVIEW","Review full medicine list and clinical context."),
-"Rifampicin / rifampin": ("Strong CYP3A4 inducer","Can reduce tamoxifen exposure; product labeling advises against strong CYP3A4 inducers.","HIGH-PRIORITY REVIEW","Prompt prescriber/pharmacist review."),
-"Carbamazepine": ("Enzyme inducer","May alter exposure; verify the specific interaction with a current clinical resource.","REVIEW","Pharmacist/prescriber should verify current interaction information."),
-"Phenytoin": ("Enzyme inducer","May alter exposure; verify the specific interaction with a current clinical resource.","REVIEW","Pharmacist/prescriber should verify current interaction information."),
-"Warfarin": ("Anticoagulant interaction","Tamoxifen can increase anticoagulant effect and bleeding risk.","HIGH-PRIORITY REVIEW","Anticoagulation team/prescriber review; monitoring may be needed."),
-"Anastrozole": ("Endocrine regimen overlap","Routine concurrent use with tamoxifen has not shown added benefit and is generally avoided in product labeling.","REGIMEN REVIEW","Confirm intended regimen with oncology team."),
-"Letrozole": ("Endocrine regimen overlap","Concurrent use is not generally recommended in product labeling; combination efficacy is not established.","REGIMEN REVIEW","Confirm intended regimen with oncology team.")
+    "Paroxetine": {
+        "class": "Strong CYP2D6 inhibitor",
+        "concern": "May reduce CYP2D6-mediated endoxifen formation.",
+        "priority": "High-priority review"
+    },
+    "Fluoxetine": {
+        "class": "Strong CYP2D6 inhibitor",
+        "concern": "May reduce CYP2D6-mediated endoxifen formation.",
+        "priority": "High-priority review"
+    },
+    "Bupropion": {
+        "class": "Strong CYP2D6 inhibitor",
+        "concern": "May reduce CYP2D6 activity.",
+        "priority": "High-priority review"
+    },
+    "Duloxetine": {
+        "class": "CYP2D6 inhibitor",
+        "concern": "Potential interaction; assess clinical context.",
+        "priority": "Review"
+    },
+    "Sertraline": {
+        "class": "CYP2D6 inhibition varies",
+        "concern": "Review dose, alternatives and clinical context.",
+        "priority": "Context-dependent review"
+    },
+    "Rifampicin": {
+        "class": "Strong enzyme inducer",
+        "concern": "May alter tamoxifen exposure; verify current product information.",
+        "priority": "High-priority review"
+    },
+    "Carbamazepine": {
+        "class": "Enzyme inducer",
+        "concern": "Potential pharmacokinetic interaction; verify with a clinical resource.",
+        "priority": "Review"
+    },
+    "Warfarin": {
+        "class": "Anticoagulant interaction",
+        "concern": "Potentially increased anticoagulant effect and bleeding risk.",
+        "priority": "High-priority review"
+    }
 }
-PHENOTYPE = {
-"Not tested / unknown":("Status unknown; do not infer genotype from symptoms or ancestry.","NCCN does not recommend routine CYP2D6 testing to select adjuvant endocrine therapy."),
-"Normal metabolizer":("Expected CYP2D6 activity in normal range.","CPIC 2018: standard tamoxifen 20 mg/day; avoid moderate and strong CYP2D6 inhibitors."),
-"Intermediate metabolizer":("Reduced CYP2D6 activity expected.","CPIC 2018 discusses endocrine alternatives in context and avoidance of CYP2D6 inhibitors; clinician must individualise."),
-"Poor metabolizer":("Little or no CYP2D6 activity expected.","CPIC 2018 recommends considering alternative endocrine therapy; 40 mg/day is only a clinician-considered option in selected situations."),
-"Ultrarapid metabolizer":("Higher-than-normal CYP2D6 activity expected.","CPIC 2018: standard tamoxifen 20 mg/day; avoid moderate and strong CYP2D6 inhibitors.")
-}
 
-st.sidebar.header("Scenario setup")
-indication = st.sidebar.selectbox("Clinical context", [
-    "ER/PR-positive breast cancer — adjuvant setting",
-    "Metastatic hormone receptor-positive breast cancer",
-    "Risk reduction / DCIS context", "Other / not specified"])
-phenotype = st.sidebar.selectbox("CYP2D6 phenotype (from validated lab report)", list(PHENOTYPE.keys()))
-menopause = st.sidebar.selectbox("Menopausal status", ["Unknown / not documented", "Premenopausal", "Postmenopausal", "Perimenopausal / uncertain"])
-hr_status = st.sidebar.selectbox("Hormone receptor status", ["Positive (ER and/or PR)", "Negative", "Unknown / not documented"])
-ai_contraindicated = st.sidebar.selectbox("Aromatase inhibitor (AI) suitability", ["Not assessed", "No known contraindication / may be considered", "AI contraindicated or not tolerated (clinician-confirmed)"])
-selected_meds = st.sidebar.multiselect("Co-medications to screen", list(INTERACTIONS.keys()),
-    help="Select medicines in a fictional scenario. List is not exhaustive.")
-scenario = st.sidebar.text_input("Scenario label", "Demo case A")
-st.sidebar.caption("Do not enter identifiable patient data.")
+PHENOTYPES = [
+    "Not tested / unknown",
+    "Normal metabolizer",
+    "Intermediate metabolizer",
+    "Poor metabolizer",
+    "Ultrarapid metabolizer"
+]
 
-high = [m for m in selected_meds if INTERACTIONS[m][2] == "HIGH-PRIORITY REVIEW"]
-review = [m for m in selected_meds if INTERACTIONS[m][2] in ("REVIEW","CONTEXT-DEPENDENT REVIEW","REGIMEN REVIEW")]
-a,b,c,d = st.columns(4)
-a.metric("Selected medicines",len(selected_meds))
-b.metric("High-priority review flags",len(high))
-c.metric("Other review flags",len(review))
-d.metric("CYP2D6 status","Unknown" if phenotype=="Not tested / unknown" else phenotype)
-if high:
-    st.error("High-priority review prompt: "+", ".join(high)+". This is not an automatic contraindication or treatment instruction.")
-elif review:
-    st.warning("Potential interaction/regimen review: "+", ".join(review)+". Verify with current product information and a clinical pharmacist/prescriber.")
-else:
-    st.info("No listed interaction selected. This is NOT proof the full medication list is interaction-free or that treatment is safe.")
+# ---------------------------------------------------------
+# SIDEBAR: DEMO SCENARIO
+# ---------------------------------------------------------
 
-tabs = st.tabs(["🧬 Mechanism & PK/PGx","💊 Interaction checker","🛡️ Pharmacovigilance","📚 Standard vs modifications","📊 Live dashboard"])
+st.sidebar.title("Scenario setup")
+st.sidebar.caption("Use fictional cases only. Do not enter patient identifiers.")
+
+scenario = st.sidebar.text_input("Scenario name", "Demo case A")
+
+indication = st.sidebar.selectbox(
+    "Clinical context",
+    [
+        "ER/PR-positive breast cancer — adjuvant",
+        "Metastatic hormone receptor-positive breast cancer",
+        "DCIS / risk-reduction context",
+        "Other / not specified"
+    ]
+)
+
+phenotype = st.sidebar.selectbox(
+    "CYP2D6 phenotype",
+    PHENOTYPES
+)
+
+menopause = st.sidebar.selectbox(
+    "Menopausal status",
+    [
+        "Unknown / not documented",
+        "Premenopausal",
+        "Postmenopausal"
+    ]
+)
+
+ai_status = st.sidebar.selectbox(
+    "Aromatase inhibitor suitability",
+    [
+        "Not assessed",
+        "May be considered by oncology team",
+        "Contraindicated / not tolerated — clinician confirmed"
+    ]
+)
+
+selected_meds = st.sidebar.multiselect(
+    "Medicines to screen",
+    list(INTERACTIONS.keys())
+)
+
+# ---------------------------------------------------------
+# TOP-LEVEL SCENARIO SUMMARY
+# ---------------------------------------------------------
+
+high_priority = [
+    med for med in selected_meds
+    if INTERACTIONS[med]["priority"] == "High-priority review"
+]
+
+other_review = [
+    med for med in selected_meds
+    if INTERACTIONS[med]["priority"] != "High-priority review"
+]
+
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("Scenario", scenario)
+m2.metric("Medicines selected", len(selected_meds))
+m3.metric("High-priority flags", len(high_priority))
+m4.metric("CYP2D6 status", phenotype)
+
+if high_priority:
+    st.warning(
+        "High-priority interaction review: "
+        + ", ".join(high_priority)
+        + ". This is a review prompt, not an automatic contraindication."
+    )
+
+if other_review:
+    st.info("Additional review flags: " + ", ".join(other_review))
+
+# ---------------------------------------------------------
+# MAIN TABS
+# ---------------------------------------------------------
+
+tabs = st.tabs([
+    "🧬 Live Mechanism Explorer",
+    "💊 Interaction Checker",
+    "🛡️ Safety Signals",
+    "📚 Clinical Decision Support",
+    "📊 Research Dashboard"
+])
+
+# =========================================================
+# TAB 1: INTERACTIVE MECHANISM EXPLORER
+# =========================================================
 
 with tabs[0]:
-    st.subheader("Live mechanism explorer — multiple pathways")
-    st.caption("Choose a mechanism below. The diagram, explanation and clinical relevance update live when you change the selection or scenario inputs.")
+    st.header("Live mechanism explorer")
+    st.write(
+        "Select a pathway to change the diagram and explanation. "
+        "Use the visual pathway to explain the biology during your presentation."
+    )
 
-    MECHANISMS = {
-        "1 · CYP2D6 pharmacogenomics": {
-            "title": "CYP2D6 genotype → endoxifen formation",
-            "description": "Tamoxifen undergoes metabolism to several metabolites. CYP2D6 contributes to formation of endoxifen, an active metabolite. Reduced-function alleles can reduce CYP2D6 activity; the diplotype and activity score must be interpreted using a validated laboratory report.",
-            "nodes": [("Tamoxifen", "Parent drug", "#2563eb"), ("N-desmethyl tamoxifen", "Intermediate metabolite", "#0f766e"), ("Endoxifen", "Active metabolite", "#0f766e"), ("Clinical effect", "Not predicted by this diagram", "#475569")],
-            "edges": [(0,1),(1,2),(2,3)],
-            "modifier": "CYP2D6 diplotype / activity score",
-            "effect": "May alter endoxifen formation. This diagram does not estimate an individual concentration or response.",
-            "source": "CPIC tamoxifen–CYP2D6 guideline (2018); confirm current guideline and validated phenotype translation."
+    mechanisms = {
+        "1. CYP2D6 and endoxifen": {
+            "title": "CYP2D6 pharmacogenomics",
+            "steps": [
+                "Tamoxifen",
+                "N-desmethyl tamoxifen",
+                "Endoxifen",
+                "Clinical interpretation"
+            ],
+            "explanation": (
+                "CYP2D6 contributes to the formation of endoxifen, "
+                "an active tamoxifen metabolite. Reduced enzyme activity "
+                "or CYP2D6-inhibiting medicines may reduce endoxifen formation. "
+                "This diagram does not calculate an individual endoxifen level."
+            ),
+            "modifier": "Diplotype, activity score, phenotype and interacting medicines",
+            "clinical": (
+                "Use a validated laboratory report and current CPIC guidance "
+                "when interpreting CYP2D6 results. Do not infer phenotype "
+                "from symptoms or ancestry."
+            ),
+            "source": "CPIC tamoxifen–CYP2D6 guideline; verify the current version."
         },
-        "2 · CYP2D6 inhibitor interaction": {
-            "title": "Co-medication inhibits CYP2D6",
-            "description": "Some medicines inhibit CYP2D6 and can reduce conversion toward endoxifen. The magnitude depends on the specific medicine, dose, duration, other drugs and patient context.",
-            "nodes": [("Tamoxifen", "Parent drug", "#2563eb"), ("CYP2D6", "Metabolic enzyme", "#7c3aed"), ("Endoxifen", "Active metabolite", "#0f766e"), ("Potentially lower formation", "Qualitative only", "#b45309")],
-            "edges": [(0,1),(1,2),(2,3)],
-            "modifier": "CYP2D6-inhibiting co-medication",
-            "effect": "Selected inhibitors trigger a medication-review prompt. Never stop or switch a prescribed medicine without the prescriber.",
-            "source": "CPIC 2018; verify each interaction against current product information / a trusted interaction resource."
+        "2. CYP2D6 inhibitor interaction": {
+            "title": "Drug interaction pathway",
+            "steps": [
+                "Tamoxifen",
+                "CYP2D6 inhibition",
+                "Potentially reduced endoxifen formation",
+                "Medication review"
+            ],
+            "explanation": (
+                "Some medicines inhibit CYP2D6 and can reduce the conversion "
+                "of tamoxifen to endoxifen. The magnitude depends on the drug, "
+                "dose, exposure and clinical context."
+            ),
+            "modifier": "Co-medication, dose, duration and alternatives",
+            "clinical": (
+                "Review the full medication list with the prescriber or pharmacist. "
+                "Do not stop antidepressants or other prescribed medicines abruptly."
+            ),
+            "source": "CPIC guidance and current medicine product information."
         },
-        "3 · CYP3A4 induction": {
-            "title": "Enzyme induction may alter tamoxifen exposure",
+        "3. CYP3A4 and enzyme induction": {
+            "title": "Enzyme induction and drug exposure",
+            "steps": [
+                "Tamoxifen exposure",
+                "Enzyme-inducing medicine",
+                "Possible altered drug exposure",
+                "Clinical review"
+            ],
+            "explanation": (
+                "Enzyme induction can change the exposure of medicines and "
+                "their metabolites. The effect is drug-specific; do not assume "
+                "that every inducer has the same effect on tamoxifen."
+            ),
+            "modifier": "Inducer identity, dose, duration and product label",
+            "clinical": (
+                "Check the exact interaction in a current clinical resource "
+                "and obtain pharmacist/prescriber review before any change."
+            ),
+            "source": "Current tamoxifen product information and interaction resources."
+        },
+        "4. Estrogen receptor action": {
+            "title": "Selective estrogen receptor modulator",
+            "steps": [
+                "Tamoxifen",
+                "Estrogen receptor interaction",
+                "Tissue-dependent effects",
+                "Clinical context"
+            ],
+            "explanation": (
+                "Tamoxifen is a selective estrogen receptor modulator (SERM). "
+                "Its effects differ by tissue; it acts as an estrogen antagonist "
+                "in breast tissue, while effects in other tissues are different."
+            ),
+            "modifier": "Tissue, disease setting and endocrine context",
+            "clinical": (
+                "Mechanism alone does not determine whether tamoxifen is the "
+                "right treatment for a particular patient."
+            ),
+            "source": "Established pharmacology and current oncology guidance."
+        },
+        "5. Aromatase inhibitor pathway": {
+            "title": "Reduction of estrogen synthesis",
+            "steps": [
+                "Aromatase inhibitor",
+                "Aromatase inhibition",
+                "Reduced estrogen synthesis",
+                "Oncology assessment"
+            ],
+            "explanation": (
+                "Anastrozole, letrozole and exemestane inhibit aromatase, "
+                "reducing estrogen synthesis. Suitability depends on the "
+                "clinical setting and patient factors."
+            ),
+            "modifier": "Menopausal status, tolerability and recurrence risk",
+            "clinical": (
+                "In premenopausal patients, an aromatase inhibitor generally "
+                "requires ovarian function suppression. Regimen choice belongs "
+                "to the oncology team."
+            ),
+            "source": "Current ASCO/ESMO guidance and relevant product information."
+        },
+        "6. Ovarian function suppression": {
+            "title": "Ovarian function suppression",
+            "steps": [
+                "OFS treatment",
+                "Reduced ovarian activity",
+                "Lower ovarian estrogen production",
+                "Regimen review"
+            ],
+            "explanation": (
+                "Ovarian function suppression reduces ovarian estrogen production. "
+                "It may be part of selected endocrine regimens for premenopausal "
+                "patients, depending on clinical indication and risk."
+            ),
+            "modifier": "Menopausal status, regimen and patient preferences",
+            "clinical": (
+                "The need for ovarian suppression and the choice of endocrine "
+                "therapy require individual oncology assessment."
+            ),
+            "source": "Current oncology endocrine-therapy guidance."
+        },
+        "7. Safety and pharmacovigilance": {
+            "title": "Adverse-event recognition",
+            "steps": [
+                "Medicine exposure",
+                "New symptom",
+                "Clinical assessment",
+                "Appropriate escalation"
+            ],
+            "explanation": (
+                "A safety signal is a reason to assess a symptom, not proof that "
+                "tamoxifen caused it. The app does not calculate adverse-event "
+                "probability or establish causality."
+            ),
+            "modifier": "Symptom severity, timing, history and competing causes",
+            "clinical": (
+                "Sudden breathlessness or chest pain requires emergency assessment. "
+                "New unilateral leg swelling/pain needs urgent assessment. "
+                "Abnormal vaginal bleeding needs prompt clinical review."
+            ),
+            "source": "Current product safety information and local clinical protocols."
+        }
+    }
+
+    choice = st.selectbox(
+        "Choose a pathway to demonstrate",
+        list(mechanisms.keys())
+    )
+
+    selected = mechanisms[choice]
+
+    st.subheader(selected["title"])
+
+    # Build a live, selectable pathway diagram.
+    labels = selected["steps"]
+    x_positions = list(range(len(labels)))
+
+    fig = go.Figure()
+
+    for i, label in enumerate(labels):
+        fig.add_trace(go.Scatter(
+            x=[i],
+            y=[0],
+            mode="markers+text",
+            text=[label],
+            textposition="bottom center",
+            marker=dict(size=42),
+            hovertemplate="%{text}<extra></extra>",
+            showlegend=False
+        ))
+
+    for i in range(len(labels) - 1):
+        fig.add_annotation(
+            x=i + 1,
+            y=0,
+            ax=i,
+            ay=0,
+            xref="x",
+            yref="y",
+            axref="x",
+            ayref="y",
+            text="",
+            showarrow=True,
+            arrowhead=3,
+            arrowsize=1.5,
+            arrowwidth=2
+        )
+
+    fig.update_layout(
+        height=280,
+        margin=dict(l=20, r=20, t=30, b=100),
+        xaxis=dict(
+            visible=False,
+            range=[-0.5, len(labels) - 0.5]
+        ),
+        yaxis=dict(visible=False, range=[-0.6, 0.7]),
+        template="plotly_dark",
+        showlegend=False
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("### Live explanation")
+    st.write(selected["explanation"])
+
+    st.markdown("### What can modify this pathway?")
+    st.info(selected["modifier"])
+
+    st.markdown("### Clinical relevance")
+    st.write(selected["clinical"])
+
+    st.caption("Evidence note: " + selected["source"])
+
+    st.markdown("### Current demo scenario")
+    st.write({
+        "Scenario": scenario,
+        "CYP2D6 phenotype": phenotype,
+        "Selected medicines": selected_meds if selected_meds else "None selected"
+    })
+
+    st.caption(
+        "Educational visualization only. No individual risk, drug concentration, "
+        "treatment response or toxicity probability is predicted."
+    )
+
+# =========================================================
+# TAB 2: INTERACTION CHECKER
+# =========================================================
+
+with tabs[1]:
+    st.header("Drug interaction review")
+
+    if not selected_meds:
+        st.info("Select one or more medicines in the sidebar to screen the demo case.")
+    else:
+        rows = []
+
+        for med in selected_meds:
+            item = INTERACTIONS[med]
+            rows.append({
+                "Medicine": med,
+                "Interaction class": item["class"],
+                "Potential concern": item["concern"],
+                "Review priority": item["priority"]
+            })
+
+        interaction_df = pd.DataFrame(rows)
+
+        st.dataframe(
+            interaction_df,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.download_button(
+            "Download interaction review CSV",
+            data=interaction_df.to_csv(index=False).encode("utf-8"),
+            file_name="tamoxifen_interaction_review.csv",
+            mime="text/csv"
+        )
+
+    st.warning(
+        "This list is not exhaustive. A medicine not listed here is not "
+        "automatically safe. Confirm interactions using current clinical resources."
+    )
+
+# =========================================================
+# TAB 3: SAFETY SIGNALS
+# =========================================================
+
+with tabs[2]:
+    st.header("Safety signals and pharmacovigilance")
+    st.write(
+        "Record a fictional teaching scenario. This form is not a diagnostic "
+        "tool and does not submit an adverse-event report."
+    )
+
+    symptom = st.selectbox(
+        "Demo symptom",
+        [
+            "No symptom selected",
+            "Unilateral leg swelling or pain",
+            "Chest pain or sudden breathlessness",
+            "Abnormal vaginal bleeding",
+            "Possible liver injury symptoms",
+            "Other / nonspecific symptom"
+        ]
+    )
+
+    severity = st.selectbox(
+        "Demo severity",
+        ["Not assessed", "Mild", "Moderate", "Severe"]
+    )
+
+    onset = st.selectbox(
+        "Timing relative to treatment",
+        ["Unknown", "Before treatment", "After treatment started"]
+    )
+
+    if symptom == "Chest pain or sudden breathlessness":
+        st.error(
+            "Emergency warning: chest pain or sudden breathlessness needs "
+            "emergency medical assessment."
+        )
+    elif symptom == "Unilateral leg swelling or pain":
+        st.warning(
+            "Urgent assessment is needed to evaluate possible causes, including "
+            "a blood clot. This app cannot diagnose the cause."
+        )
+    elif symptom == "Abnormal vaginal bleeding":
+        st.warning(
+            "Prompt clinical assessment is needed. Do not assume the symptom "
+            "is caused by tamoxifen without evaluation."
+        )
+    elif symptom == "Possible liver injury symptoms":
+        st.warning(
+            "Seek prompt medical evaluation for possible liver injury symptoms."
+        )
+    else:
+        st.info("Select a demo symptom to see the relevant safety prompt.")
+
+    safety_record = pd.DataFrame([{
+        "Scenario": scenario,
+        "Symptom": symptom,
+        "Severity": severity,
+        "Timing": onset,
+        "Record date": date.today().isoformat()
+    }])
+
+    st.subheader("Demo safety record")
+    st.dataframe(safety_record, use_container_width=True, hide_index=True)
+
+    st.download_button(
+        "Download demo safety record",
+        data=safety_record.to_csv(index=False).encode("utf-8"),
+        file_name="tamoxifen_demo_safety_record.csv",
+        mime="text/csv"
+    )
+
+    st.caption(
+        "This is a fictional educational record, not a submitted adverse drug "
+        "reaction report. Follow local pharmacovigilance procedures."
+    )
+
+# =========================================================
+# TAB 4: CLINICAL DECISION SUPPORT
+# =========================================================
+
+with tabs[3]:
+    st.header("Guideline-informed clinical discussion")
+    st.caption(
+        "Educational summary, not a prescription engine. Confirm current "
+        "guidelines, product labeling and the full clinical context."
+    )
+
+    st.markdown("### Clinical eligibility")
+    st.write("Selected context: **" + indication + "**")
+
+    if indication == "Other / not specified":
+        st.warning(
+            "The clinical indication is unclear. Do not generate a treatment "
+            "pathway until the oncology team confirms the indication."
+        )
+    elif indication == "Metastatic hormone receptor-positive breast cancer":
+        st.warning(
+            "Metastatic disease requires a separate oncology assessment. "
+            "Previous therapies, disease characteristics, biomarkers and "
+            "patient factors influence treatment selection."
+        )
+    else:
+        st.info(
+            "Confirm pathology, disease setting, stage, previous therapies, "
+            "comorbidities and patient preferences before applying a guideline."
+        )
+
+    st.markdown("### CYP2D6 interpretation")
+
+    if phenotype == "Not tested / unknown":
+        st.info(
+            "CYP2D6 status is unknown. Do not infer genotype from symptoms "
+            "or ancestry. Routine CYP2D6 testing is not universally recommended "
+            "by all oncology guidelines."
+        )
+    elif phenotype in ["Normal metabolizer", "Ultrarapid metabolizer"]:
+        st.write(
+            "CPIC reference: standard tamoxifen dosing is generally supported "
+            "for normal and ultrarapid metabolizers when tamoxifen is otherwise "
+            "appropriate. Review CYP2D6-inhibiting co-medications."
+        )
+    elif phenotype == "Intermediate metabolizer":
+        st.write(
+            "Reduced CYP2D6 activity may affect endoxifen formation. Confirm "
+            "the laboratory diplotype and activity score; discuss options with "
+            "the oncology team using current guidance."
+        )
+    elif phenotype == "Poor metabolizer":
+        st.write(
+            "CPIC guidance supports considering an alternative endocrine "
+            "approach when clinically appropriate. Menopausal status and "
+            "other clinical factors affect the options."
+        )
+
+    st.markdown("### Menopausal status and AI suitability")
+    st.write("Menopausal status: **" + menopause + "**")
+    st.write("AI suitability: **" + ai_status + "**")
+
+    if menopause == "Premenopausal":
+        st.info(
+            "If an aromatase inhibitor is considered, ovarian function "
+            "suppression is generally required in premenopausal patients."
+        )
+
+    st.warning(
+        "This prototype does not choose a regimen, prescribe a dose, or "
+        "determine whether an individual patient should change treatment."
+    )
+
+    st.markdown("### Evidence sources to consult")
+    st.markdown("""
+    - CPIC: CYP2D6 genotype and tamoxifen therapy.
+    - ASCO: endocrine therapy guidance for breast cancer.
+    - ESMO: breast cancer clinical practice guidance.
+    - Current official product information for tamoxifen and interacting medicines.
+    """)
+
+# =========================================================
+# TAB 5: RESEARCH DASHBOARD
+# =========================================================
+
+with tabs[4]:
+    st.header("Research dashboard")
+    st.write(
+        "This dashboard summarizes the current fictional scenario. "
+        "It is not a patient registry or validated prediction model."
+    )
+
+    dashboard = pd.DataFrame([
+        {"Metric": "Scenario", "Value": scenario},
+        {"Metric": "Clinical context", "Value": indication},
+        {"Metric": "CYP2D6 phenotype", "Value": phenotype},
+        {"Metric": "Menopausal status", "Value": menopause},
+        {"Metric": "Selected medicines", "Value": len(selected_meds)},
+        {"Metric": "High-priority interaction flags", "Value": len(high_priority)},
+        {"Metric": "Other interaction review flags", "Value": len(other_review)}
+    ])
+
+    st.dataframe(dashboard, use_container_width=True, hide_index=True)
+
+    c1, c2 = st.columns(2)
+    c1.metric("Interaction flags", len(selected_meds))
+    c2.metric("High-priority review flags", len(high_priority))
+
+    if selected_meds:
+        counts = pd.DataFrame({
+            "Medicine": selected_meds,
+            "Priority": [
+                INTERACTIONS[m]["priority"] for m in selected_meds
+            ]
+        })
+
+        st.subheader("Selected medicine review priorities")
+        st.bar_chart(counts["Priority"].value_counts())
+
+    st.download_button(
+        "Download scenario summary CSV",
+        data=dashboard.to_csv(index=False).encode("utf-8"),
+        file_name="oncoPGx_demo_dashboard.csv",
+        mime="text/csv"
+    )
+
+    st.caption(
+        "No model training, external validation, calibration, individual "
+        "toxicity prediction or clinical outcome prediction is performed."
+    )
+
+# ---------------------------------------------------------
+# FOOTER
+# ---------------------------------------------------------
+
+st.divider()
+st.caption(
+    "OncoPGx | Tamoxifen Safe-Use Explorer — educational research prototype. "
+    "Verify all clinical statements against current authoritative sources."
+)
