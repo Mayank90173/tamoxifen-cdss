@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
 
-# ─── INTERFACE CONFIGURATION & HUD SURGICAL THEME ─────────────────────────────
+# ─── INTERFACE CONFIGURATION & HIGH-FIDELITY HUD PRECISION THEME ──────────────
 st.set_page_config(
     page_title="OncoPGx Core Platform v5.0",
     layout="wide",
@@ -48,14 +48,14 @@ st.markdown("""
 st.markdown("""
     <div class="innovation-banner">
         <span class="system-badge">✦ TRANSLATIONAL ECOSPEED // PHARMACOGENOMIC SIMULATOR v5.0</span>
-        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 OncoPGx India v5.0: Full-Fledged Precision Oncology Architecture</h1>
+        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 OncoPGx India v5.0: Advanced Quantitative Systems Pharmacology Engine</h1>
         <p style='color: #94a3b8 !important; margin: 5px 0 0 0; font-size:13px; font-family: monospace;'>
             Integrated Real-Time PK Graph • Multi-Guideline Ingestion (CPIC/ASCO/ESMO) • Independent Investigator Framework: Mayank Virmani
         </p>
     </div>
 """, unsafe_allow_html=True)
 
-# ─── TWO COLUMN SYSTEM WORKSPACE LAYOUT ───────────────────────────────────────
+# ─── HIGH-DENSITY DIVISION TRAJECTORY (TWO COLUMN LAYOUT SYSTEM) ──────────────
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
@@ -78,18 +78,19 @@ with col1:
     cyp3a4_mod = st.selectbox("Parallel CYP3A4 Enzyme Interferences", ["None / Baseline Cellular Clearance", "Rifampicin [STRONG Trans-Activation Inducer - Accelerated Drug Loss]", "Ketoconazole [STRONG Metabolic Clearance Suppression Matrix]"])
     compliance = st.slider("Patient Adherence Index Verification (MEMS %)", 10, 100, 100) / 100.0
 
-# ─── REAL-TIME QUANTITATIVE SYSTEMS PHARMACOLOGY LOGIC ENGINE ─────────────────
+# ─── PHARMACOKINETIC ACCUMULATION QUANTITATIVE CONVERSIONS ─────────────────────
 g_mult = 0.85 if gender == "Female" else 1.0
 computed_crcl = round(((140 - age) * weight) / (72 * creatinine) * g_mult, 1)
 k_e_base = 0.022 if computed_crcl >= 60 else 0.040 if computed_crcl >= 30 else 0.065
 
-metabolic_velocity = 22.3
 if "Poor" in cyp2d6_pheno:
     metabolic_velocity = 8.8
 elif "Intermediate" in cyp2d6_pheno:
     metabolic_velocity = 14.2 
 elif "Ultra-rapid" in cyp2d6_pheno:
     metabolic_velocity = 31.8
+else:
+    metabolic_velocity = 22.3 
 
 is_phenoconverted = False
 if "Paroxetine" in cyp2d6_inhib:
@@ -105,22 +106,23 @@ elif "Ketoconazole" in cyp3a4_mod:
 
 final_predicted_steady_state = round(metabolic_velocity * compliance, 2)
 
-# ─── FLAT DECISION ARCHITECTURE (ZERO NESTING TO PREVENT SPACE ERRORS) ────────
+# ─── REAL-TIME CLINICAL MANAGEMENT DECULATOR MATRIX DIRECTIVES ────────────────
 primary_recommendation = "Standard Adjuvant Tamoxifen Monotherapy Corridor Approved"
 regimen_specification = "Tamoxifen Malate 20 mg Oral QD"
 duration_protocol = "5 Years Standard Adjuvant Protocol"
 alternative_options = "Add OFS (Goserelin Depot) if dynamic staging drops or nodal recurrence markers scale up."
 guideline_tags = "ASCO Endocrine Mandate, ESMO Core Biomarker Matrix"
 
-if "Negative Status" in er_status:
+if "Negative" in er_status:
     primary_recommendation = "DISCONTINUE ENDOCRINE THERAPY TRAJECTORY"
     regimen_specification = "Discontinue Endocrine Intervention Protocol"
     alternative_options = "Cytotoxic Chemotherapy (Anthracyclines/Taxanes) + Targeted Biologics based on HER2/PD-L1 Status."
     duration_protocol = "Immediate Termination of Endocrine Modeling"
     guideline_tags = "ASCO 2024 Criteria, ESMO Endocrine Guidelines Section 4.1"
 else:
-    if "Node-Positive" in nodal_status or tumor_size > 50:
-        duration_protocol = "Extended 10 Years Protocol (ATLAS & aTTOM Trials)"
+    is_high_risk = "Node-Positive" in nodal_status or tumor_size > 50
+    if is_high_risk:
+        duration_protocol = "Extended 10 Years Protocol (ATLAS & aTTOM Trials Alignment)"
     
     if "Premenopausal Status" in menopausal_status:
         if "Poor" in cyp2d6_pheno or is_phenoconverted:
@@ -134,8 +136,13 @@ else:
             regimen_specification = "Tamoxifen Malate 20 mg Oral QD"
             alternative_options = "Dose-Escalation to 40 mg Oral QD (Split 20mg BID) if subsequent 90-day TDM reflects values <5.97 ng/mL."
             guideline_tags = "CPIC 2023 Guideline Axis, DPWG Consensus Guidelines"
+        else:
+            primary_recommendation = "Standard Adjuvant Tamoxifen Monotherapy Corridor Approved"
+            regimen_specification = "Tamoxifen Malate 20 mg Oral QD"
+            alternative_options = "Add OFS (Goserelin Depot) if dynamic staging drops or nodal recurrence markers scale up."
+            guideline_tags = "ASCO Endocrine Mandate, ESMO Core Biomarker Matrix"
     else:
-        if "Poor" in cyp2d6_pheno or is_phenoconverted or "Node-Positive" in nodal_status or tumor_size > 50:
+        if "Poor" in cyp2d6_pheno or is_phenoconverted or is_high_risk:
             primary_recommendation = "Primary Aromatase Inhibitor (AI) Monotherapy Deployment"
             regimen_specification = "Letrozole 2.5 mg Oral QD OR Anastrozole 1 mg Oral QD"
             alternative_options = "Exemestane (Steroidal AI) 25 mg Oral QD if muscular arthralgia triggers on letrozole."
@@ -147,10 +154,5 @@ else:
             alternative_options = "Tamoxifen Malate 20 mg QD if severe osteoporosis or accelerated T-Score degradation breaches safety thresholds."
             guideline_tags = "ESMO Guidelines, ASCO Early Breast Cancer Guidelines"
 
-# ─── REAL-TIME VISUALIZATIONS SECTION (COL2 INDENTATION PROOF) ────────────────
+# ─── REAL-TIME GRAPH PREVIEW COLUMNS INTERACTION (100% BALANCED INDENTS) ─────
 with col2:
-    st.markdown("<div class='hud-header'>📊 Real-Time Multi-Organ Analytical Dashboard</div>", unsafe_allow_html=True)
-    m1, m2, m3 = st.columns(3)
-    m1.markdown(f"<div class='metric-panel'><div class='metric-lbl'>Predictive Endoxifen</div><div class='metric-val'>{final_predicted_steady_state} ng/mL</div></div>", unsafe_allow_html=True)
-    
-    ren_color = "#ef4444" if computed_crcl < 30 else "#f59e0b" if computed_crcl < 60 else "#10b981"
