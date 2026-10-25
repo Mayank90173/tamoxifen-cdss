@@ -249,6 +249,252 @@ PATHWAYS = {
     },
 }
 
+# ================= PATIENT PROFILE MODULE =================
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("## 👤 Patient Profile")
+
+with st.sidebar.form("patient_profile_form"):
+    patient_id = st.text_input(
+        "Demo Patient ID",
+        value="DEMO-001",
+        help="Use a fictional ID. Do not enter patient-identifying information."
+    )
+
+    age = st.number_input(
+        "Age (years)",
+        min_value=18,
+        max_value=110,
+        value=52
+    )
+
+    menopausal_status = st.selectbox(
+        "Menopausal status",
+        [
+            "Unknown",
+            "Premenopausal",
+            "Postmenopausal",
+            "Perimenopausal / uncertain"
+        ]
+    )
+
+    cancer_stage = st.selectbox(
+        "Cancer stage",
+        [
+            "Unknown",
+            "Stage 0 / DCIS",
+            "Stage I",
+            "Stage II",
+            "Stage III",
+            "Stage IV / metastatic"
+        ]
+    )
+
+    er_status = st.selectbox(
+        "Estrogen receptor (ER)",
+        ["Positive", "Negative", "Unknown"]
+    )
+
+    pr_status = st.selectbox(
+        "Progesterone receptor (PR)",
+        ["Positive", "Negative", "Unknown"]
+    )
+
+    her2_status = st.selectbox(
+        "HER2 status",
+        ["Positive", "Negative", "Unknown"]
+    )
+
+    treatment_setting = st.selectbox(
+        "Treatment setting",
+        [
+            "Adjuvant",
+            "Metastatic",
+            "Risk reduction / DCIS",
+            "Other / unknown"
+        ]
+    )
+
+    prescribed_dose = st.selectbox(
+        "Currently prescribed tamoxifen dose",
+        ["Unknown", "10 mg/day", "20 mg/day", "40 mg/day", "Other"]
+    )
+
+    cyp2d6 = st.selectbox(
+        "CYP2D6 phenotype",
+        [
+            "Not tested / unknown",
+            "Normal metabolizer",
+            "Intermediate metabolizer",
+            "Poor metabolizer",
+            "Ultrarapid metabolizer"
+        ]
+    )
+
+    bmi = st.number_input(
+        "BMI (kg/m²)",
+        min_value=10.0,
+        max_value=80.0,
+        value=25.0,
+        step=0.5
+    )
+
+    liver_status = st.selectbox(
+        "Liver function",
+        ["Unknown", "No known impairment", "Impairment reported"]
+    )
+
+    vte_history = st.selectbox(
+        "Previous venous thromboembolism (VTE)",
+        ["Unknown", "No known history", "History reported"]
+    )
+
+    adherence = st.selectbox(
+        "Medication adherence",
+        ["Unknown", "Reported good", "Missed doses reported"]
+    )
+
+    endoxifen = st.text_input(
+        "Measured endoxifen level (optional)",
+        placeholder="Enter value only if measured"
+    )
+
+    medications = st.text_area(
+        "Current medicines",
+        placeholder="Enter generic medicine names separated by commas"
+    )
+
+    symptoms = st.multiselect(
+        "Symptoms / adverse events",
+        [
+            "Hot flashes",
+            "Abnormal vaginal bleeding",
+            "Leg swelling or pain",
+            "Chest pain or sudden breathlessness",
+            "Jaundice or dark urine",
+            "Other / none reported"
+        ]
+    )
+
+    save_profile = st.form_submit_button(
+        "Save Patient Profile",
+        use_container_width=True
+    )
+
+if save_profile:
+    st.session_state["patient_profile"] = {
+        "Patient ID": patient_id.strip() or "DEMO-001",
+        "Age": age,
+        "Menopausal status": menopausal_status,
+        "Cancer stage": cancer_stage,
+        "ER status": er_status,
+        "PR status": pr_status,
+        "HER2 status": her2_status,
+        "Treatment setting": treatment_setting,
+        "Prescribed dose": prescribed_dose,
+        "CYP2D6 phenotype": cyp2d6,
+        "BMI": bmi,
+        "Liver function": liver_status,
+        "VTE history": vte_history,
+        "Adherence": adherence,
+        "Endoxifen level": endoxifen.strip() or "Not available",
+        "Current medicines": medications.strip() or "Not entered",
+        "Symptoms": symptoms
+    }
+
+    st.sidebar.success("Profile saved for this session.")
+
+# ================= PATIENT SUMMARY =================
+
+profile = st.session_state.get("patient_profile")
+
+if profile:
+    st.markdown("---")
+    st.subheader("👤 Active Patient Scenario")
+
+    st.caption(
+        "Fictional research scenario — not a validated clinical assessment."
+    )
+
+    st.markdown(
+        f"### Patient: {profile['Patient ID']}"
+    )
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric("Age", f"{profile['Age']} years")
+    c2.metric("CYP2D6", profile["CYP2D6 phenotype"])
+    c3.metric("Prescribed dose", profile["Prescribed dose"])
+    c4.metric("BMI", f"{profile['BMI']:.1f}")
+
+    with st.expander("View complete clinical profile"):
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {"Parameter": key, "Value": value}
+                    for key, value in profile.items()
+                ]
+            ),
+            use_container_width=True,
+            hide_index=True
+        )
+
+    flags = []
+
+    if profile["CYP2D6 phenotype"] == "Poor metabolizer":
+        flags.append(
+            "Review CYP2D6 interpretation and endocrine options with oncology."
+        )
+
+    if profile["Liver function"] == "Impairment reported":
+        flags.append(
+            "Liver impairment reported: clinician review may be appropriate."
+        )
+
+    if profile["VTE history"] == "History reported":
+        flags.append(
+            "Previous VTE reported: review thromboembolic risk with the care team."
+        )
+
+    if profile["Adherence"] == "Missed doses reported":
+        flags.append(
+            "Adherence concern: discuss barriers with the care team."
+        )
+
+    if profile["Symptoms"]:
+        for symptom in profile["Symptoms"]:
+            if symptom == "Chest pain or sudden breathlessness":
+                flags.append(
+                    "URGENT: chest pain or sudden breathlessness requires emergency assessment."
+                )
+            elif symptom == "Leg swelling or pain":
+                flags.append(
+                    "New leg swelling or pain needs urgent assessment for possible VTE."
+                )
+            elif symptom == "Abnormal vaginal bleeding":
+                flags.append(
+                    "Abnormal vaginal bleeding requires clinical assessment."
+                )
+            elif symptom == "Jaundice or dark urine":
+                flags.append(
+                    "Jaundice or dark urine requires prompt clinical assessment."
+                )
+            elif symptom not in ("Other / none reported",):
+                flags.append(
+                    f"Reported symptom: {symptom}. Review severity and context."
+                )
+
+    if flags:
+        st.markdown("### ⚠️ Review prompts")
+        for flag in flags:
+            st.warning(flag)
+    else:
+        st.info(
+            "No review prompts triggered by the fields entered. "
+            "This does not establish that treatment is safe."
+        )
+
+
 # -------------------- SIDEBAR --------------------
 
 st.sidebar.markdown("## 🧬 OncoPGx")
