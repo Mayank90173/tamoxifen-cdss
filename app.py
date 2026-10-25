@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
+# ─── INTERFACE CONFIGURATION & HUD HIGH-FIDELITY PRESENTATION THEME ──────────
 st.set_page_config(
     page_title="OncoPGx Core Platform v5.6",
     layout="wide",
@@ -44,13 +45,14 @@ st.markdown("""
 st.markdown("""
     <div class="innovation-banner">
         <span class="system-badge">✦ TRANSLATIONAL ECOSPEED // ESTIC 2026 CONF MATRIX</span>
-        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 OncoPGx India v5.6: Precision Oncology Architecture</h1>
+        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 OncoPGx India v5.6: Full-Fledged Precision Oncology Architecture</h1>
         <p style='color: #94a3b8 !important; margin: 5px 0 0 0; font-size:13px; font-family: monospace;'>
             Integrated Real-Time PK Graph • Multi-Guideline Ingestion (CPIC/ASCO/ESMO) • Lead Investigator: Mayank Virmani
         </p>
     </div>
 """, unsafe_allow_html=True)
 
+# ─── HIGH-DENSITY DIVISION TRAJECTORY (TWO COLUMN LAYOUT SYSTEM) ──────────────
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
@@ -86,7 +88,7 @@ with col1:
     ])
     compliance = st.slider("Patient Adherence Index Verification (MEMS %)", 10, 100, 100) / 100.0
 
-# ─── PHARMACOKINETIC LOGIC Engine ─────────────────
+# ─── REAL-TIME QUANTITATIVE SYSTEMS PHARMACOLOGY LOGIC ENGINE ─────────────────
 g_mult = 0.85 if gender == "Female" else 1.0
 computed_crcl = round(((140 - age) * weight) / (72 * creatinine) * g_mult, 1)
 k_e_base = 0.022 if computed_crcl >= 60 else 0.040 if computed_crcl >= 30 else 0.065
@@ -114,7 +116,7 @@ elif "Ketoconazole" in cyp3a4_mod:
 
 final_predicted_steady_state = round(metabolic_velocity * compliance, 2)
 
-# ─── CLINICAL DECISION MATRIX ─────────────────────────────
+# ─── REAL-TIME CLINICAL MATRIX RESOLUTION ENGINE ─────────────────────────────
 guideline_text = "ASCO Endocrine Mandate, ESMO Core Biomarker Matrix"
 primary_recommendation = ""
 alternative_options = ""
@@ -136,7 +138,7 @@ else:
     base_duration = "5 Years Adjuvant Protocol" if not is_high_risk else "Extended 10 Years Protocol (ATLAS & aTTOM Trials)"
     if is_high_risk:
         sop_status = "TIMELINE EXTENSION INTERVENTION"
-        sop_rationale = "High tumor load or nodal matrix involvement requires transition to 10 years framework based on ATLAS trial guidelines."
+        sop_rationale = "High tumor load or nodal matrix involvement requires transition to 10 years framework."
 
     if "Premenopausal Status" in menopausal_status:
         if "Poor" in cyp2d6_pheno or is_phenoconverted:
@@ -154,19 +156,16 @@ else:
             duration_protocol = base_duration
             guideline_text = "CPIC 2023 Guideline Axis, DPWG Consensus Guidelines"
             sop_status = "CONTINGENT TDM MODIFICATION"
-            sop_rationale = "Borderline clearance via South Asian *10 Intermediate Metabolizer trait. reflex action active."
+            sop_rationale = "Borderline clearance via South Asian *10 Intermediate Metabolizer trait."
         else:
             primary_recommendation = "Standard Adjuvant Tamoxifen Monotherapy Corridor Approved"
             regimen_specification = "Tamoxifen Malate 20 mg Oral QD"
             alternative_options = "Add OFS (Goserelin Depot) if dynamic staging drops or nodal recurrence markers scale up."
             duration_protocol = base_duration
             guideline_text = "ASCO Endocrine Mandate, ESMO Core Biomarker Matrix"
-    else: # Postmenopausal
+    else: # Postmenopausal Settings
         if "Poor" in cyp2d6_pheno or is_phenoconverted:
             primary_recommendation = "🎯 Primary Aromatase Inhibitor (AI) Monotherapy Deployment"
             regimen_specification = "Letrozole 2.5 mg Oral QD OR Anastrozole 1 mg Oral QD"
             alternative_options = "Exemestane 25 mg Oral QD if muscular arthralgia triggers on letrozole."
             duration_protocol = "5 Years Standard AI. If Node-Positive, execute sequential switch to Tamoxifen up to 10 Years."
-            guideline_text = "ASCO Postmenopausal Consensus, ESMO Early Breast Cancer Guidelines"
-            sop_status = "V1 PATHWAY MODIFICATION"
-            sop_rationale = "Postmenopausal system with absolute CYP2D6 failure is routed directly to AI."
