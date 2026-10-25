@@ -4,9 +4,9 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
 
-# ─── THE CLINICAL CORE INTERFACE DESIGN (SWISS MEDICAL SURGICAL HUD) ──────────
+# ─── INTERFACE CONFIGURATION & SWISS DARK HUD SURGICAL THEME ──────────────────
 st.set_page_config(
-    page_title="OncoPGx Core Platform v4.0",
+    page_title="OncoPGx Core Platform v5.0",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -49,19 +49,19 @@ st.markdown("""
 
 st.markdown("""
     <div class="innovation-banner">
-        <span class="system-badge">✦ TRANSLATIONAL ECOSYSTEM // PHARMACOGENOMIC DECISION ENGINE v4.0</span>
-        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 OncoPGx India v4.0: Autonomous Precision Endocrinology Platform</h1>
+        <span class="system-badge">✦ TRANSLATIONAL ECOSPEED // PHARMACOGENOMIC SIMULATOR v5.0</span>
+        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 OncoPGx India v5.0: Full-Fledged Precision Oncology Architecture</h1>
         <p style='color: #94a3b8 !important; margin: 5px 0 0 0; font-size:13px; font-family: monospace;'>
-            Multi-Guideline Ingestion (CPIC / ASCO / ESMO) • Real-Time Automated Report Compiler • Independent Investigator Framework: Mayank Virmani
+            Integrated Real-Time PK Graph • Multi-Guideline Ingestion (CPIC/ASCO/ESMO) • Independent Investigator Framework: Mayank Virmani
         </p>
     </div>
 """, unsafe_allow_html=True)
 
-# ─── HIGH-DENSITY INPUT REGISTRATION GRID ─────────────────────────────────────
+# ─── HIGH-DENSITY INPUT REGISTRATION GRID (TWO COLUMN WORKSPACE) ──────────────
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
-    st.markdown("<div class='hud-header'>📋 1. Patient Biometrics & Organ Status</div>", unsafe_allow_html=True)
+    st.markdown("<div class='hud-header'>📋 1. Patient Demographics & Organ Status</div>", unsafe_allow_html=True)
     pt_id = st.text_input("Patient Global System Identifier Hash", "IND-MOHALI-2026-X99")
     age = st.slider("Chronological Age Axis (Years)", 18, 95, 48)
     weight = st.slider("Total Body Mass Parameter (kg)", 40, 140, 65)
@@ -98,6 +98,8 @@ with col1:
 # 1. Kidney Function Metrics (Cockcroft-Gault Equation)
 g_mult = 0.85 if gender == "Female" else 1.0
 computed_crcl = round(((140 - age) * weight) / (72 * creatinine) * g_mult, 1)
+
+# Clearance rate constant calculation based on renal performance values
 k_e_base = 0.022 if computed_crcl >= 60 else 0.040 if computed_crcl >= 30 else 0.065
 
 # 2. Hepatic Metabolic Flux Processing (Aligned with Hwang et al. 13,001 Patient Cohort)
@@ -139,7 +141,6 @@ if "Negative" in er_status:
     duration_protocol = "Immediate Termination of Endocrine Modeling"
     guideline_tags = ["ASCO 2024 Criteria", "ESMO Endocrine Guidelines Section 4.1"]
 else:
-    # Baseline Duration Allocation based on Nodal and Tumor Staging Metrics
     is_high_risk = "Node-Positive" in nodal_status or tumor_size > 50
     base_duration = "5 Years Standard Adjuvant Protocol" if not is_high_risk else "Extended 10 Years Protocol (ATLAS & aTTOM Clinical Trials Alignment)"
     
