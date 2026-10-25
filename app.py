@@ -2,605 +2,647 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import base64
-from pathlib import Path
+import plotly.graph_objects as go
 from datetime import date
+from io import StringIO
+
+# =========================================================
+# OncoPGx-CDDS | Tamoxifen Clinical Decision Support Demo
+# Research prototype — not for autonomous clinical decisions
+# =========================================================
 
 st.set_page_config(
     page_title="OncoPGx-CDDS",
     page_icon="🧬",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded"
 )
 
-# ------------------ VISUAL DESIGN ------------------
+# ------------------------- DESIGN -------------------------
 st.markdown("""
 <style>
 .stApp {
-    background:
-      radial-gradient(ellipse at 10% 0%, #182b70 0%, transparent 42%),
-      radial-gradient(ellipse at 90% 30%, #18205d 0%, transparent 40%),
-      linear-gradient(135deg,#030b20 0%,#071b3c 55%,#06112b 100%);
-    color:#edf5ff;
+    background: linear-gradient(135deg, #07111f 0%, #101b35 55%, #20123b 100%);
+    color: #edf4ff;
 }
-[data-testid="stHeader"] {background:rgba(0,0,0,0);}
 [data-testid="stSidebar"] {
-    background:linear-gradient(180deg,#081a42,#071129);
-    border-right:1px solid #204a8d;
+    background: #0a1325;
+    border-right: 1px solid #26385d;
 }
-h1,h2,h3 {color:#e8f1ff !important;}
-p,label,span {color:#d6e5ff;}
-div[data-testid="stMetric"] {
-    background:linear-gradient(135deg,rgba(21,62,123,.75),rgba(13,27,64,.9));
-    border:1px solid #285a9e;
-    padding:16px;border-radius:15px;
-}
-div[data-testid="stForm"], div[data-testid="stExpander"] {
-    border:1px solid #224c83;border-radius:14px;
-}
-.stButton > button, .stDownloadButton > button {
-    background:linear-gradient(90deg,#087ee8,#7147f5);
-    color:white;border:0;border-radius:10px;
-    font-weight:600;min-height:42px;
-}
-div[data-baseweb="select"] > div,
-div[data-baseweb="input"] > div,
-div[data-baseweb="textarea"] > div {
-    background:#102a50;border-color:#2d5c95;border-radius:9px;
-}
+h1, h2, h3 { color: #e8f1ff !important; }
+p, label, .stMarkdown { color: #d8e4f7; }
 .hero {
-    border:1px solid #2c579b;
-    border-radius:20px;padding:28px;
-    background:
-      radial-gradient(ellipse at 85% 50%,rgba(0,190,255,.24),transparent 42%),
-      linear-gradient(110deg,rgba(9,32,78,.97),rgba(12,46,100,.75));
-    margin:8px 0 20px 0;
+    padding: 26px;
+    border-radius: 20px;
+    background: linear-gradient(120deg, #102b52, #33205c);
+    border: 1px solid #4767a5;
+    margin-bottom: 18px;
 }
-.hero-sub {color:#9adfff;font-size:16px;}
-.tag {
-    display:inline-block;border:1px solid #3b75bd;
-    border-radius:20px;padding:5px 11px;
-    margin:4px;color:#c8e8ff;background:#102a50;
+.panel {
+    background: rgba(20, 34, 62, 0.85);
+    border: 1px solid #30466d;
+    border-radius: 16px;
+    padding: 18px;
+    margin: 8px 0;
 }
-.small-note {color:#a8c8ed;font-size:13px;}
+.small-note { color: #aebfdb; font-size: 0.88rem; }
 </style>
 """, unsafe_allow_html=True)
 
-# Optional local DNA image: save a DNA image as dna.png beside app.py.
-# If absent, the gradient theme remains.
-dna_file = Path(__file__).parent / "dna.png"
-if dna_file.exists():
-    encoded = base64.b64encode(dna_file.read_bytes()).decode()
-    st.markdown(f"""
-    <style>
-    .hero {{
-      background-image:linear-gradient(90deg,rgba(5,20,52,.98),
-      rgba(5,25,65,.78),rgba(5,25,65,.35)),
-      url("data:image/png;base64,{encoded}");
-      background-size:cover;background-position:center;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-# ------------------ HELPERS ------------------
-def safe_num(x):
-    try:
-        return float(x) if x is not None else 0.0
-    except (ValueError, TypeError):
-        return 0.0
-
-def ckdepi_2021(scr, age, sex):
-    """2021 CKD-EPI creatinine equation; eGFR mL/min/1.73m²."""
-    if scr <= 0 or age <= 0:
-        return None
-    female = sex == "Female"
-    k = 0.7 if female else 0.9
-    alpha = -0.241 if female else -0.302
-    value = 142 * min(scr / k, 1) ** alpha
-    value *= max(scr / k, 1) ** (-1.200)
-    value *= 0.9938 ** age
-    if female:
-        value *= 1.012
-    return value
-
-def cockcroft_gault(scr, age, weight, sex):
-    """Cockcroft-Gault estimated CrCl in mL/min."""
-    if scr <= 0 or age <= 0 or weight <= 0:
-        return None
-    result = ((140 - age) * weight) / (72 * scr)
-    if sex == "Female":
-        result *= 0.85
-    return result
-
-def fmt(value, digits=1):
-    return "Not calculable — check required inputs" if value is None else f"{value:.{digits}f}"
-
-# ------------------ HEADER ------------------
 st.markdown("""
 <div class="hero">
-  <div style="font-size:36px;font-weight:800;color:#ffffff">
-    🧬 OncoPGx-CDDS
-  </div>
-  <div style="font-size:19px;font-weight:600;color:#b8d9ff">
-    Tamoxifen Clinical Pharmacology & Pharmacogenomics
-  </div>
-  <div class="hero-sub">
-    Personalized assessment · Evidence-aware · Research decision support
-  </div>
-  <br>
-  <span class="tag">CYP2D6 PGx</span>
-  <span class="tag">Clinical Pharmacology</span>
-  <span class="tag">PK/PD & Exposure</span>
-  <span class="tag">Toxicity Monitoring</span>
+  <h1>🧬 OncoPGx-CDDS</h1>
+  <h3>Tamoxifen Clinical Pharmacology & Pharmacogenomics Decision Support</h3>
+  <p>Integrated research prototype • PGx • Drug interactions • PK/PD • Safety • Clinician report</p>
 </div>
 """, unsafe_allow_html=True)
 
 st.warning(
-    "RESEARCH PROTOTYPE — NOT FOR AUTONOMOUS CLINICAL DECISIONS. "
-    "Do not start, stop, switch or change treatment using this app alone. "
-    "The treating oncology team must review all treatment decisions."
+    "RESEARCH DEMO ONLY — Not a validated clinical prediction model. "
+    "Do not use this prototype to prescribe, change, or discontinue treatment. "
+    "Clinical decisions require an oncology team's review."
 )
 
-# ------------------ NAVIGATION ------------------
-pages = [
-    "Patient Profile",
-    "Pharmacogenomics",
-    "Clinical Pharmacology",
-    "Interactions",
-    "PK/PD & Exposure",
-    "Toxicity & Safety",
-    "Report",
-]
-page = st.sidebar.radio("🧭 WORKBENCH", pages)
+# ------------------------- SIDEBAR -------------------------
+st.sidebar.title("🧭 Navigation")
+page = st.sidebar.radio(
+    "Open module",
+    [
+        "Overview",
+        "Patient & Clinical Data",
+        "Pharmacogenomics",
+        "Drug Interactions",
+        "PK/PD & AUC",
+        "Toxicity & Safety",
+        "Doctor Report"
+    ]
+)
+
 st.sidebar.markdown("---")
-st.sidebar.caption("Research prototype • Verify inputs and evidence.")
+st.sidebar.caption("Prototype v1.0 • Tamoxifen research workflow")
+st.sidebar.caption("Future integration: authorized EHR, lab and genomic-report interfaces.")
 
-# ------------------ PATIENT INPUTS ------------------
-st.header("👤 Patient & Genomic Information")
-
-c1, c2, c3 = st.columns(3)
-with c1:
-    patient_id = st.text_input("Research patient ID", "P001")
-    age = st.number_input("Age (years)", 18, 110, 50)
-    sex = st.selectbox("Sex used for equations", ["Female", "Male"])
-with c2:
-    weight = st.number_input("Weight (kg)", 0.0, 350.0, 65.0, 0.5)
-    height = st.number_input("Height (cm, optional)", 0.0, 250.0, 0.0, 0.5)
-    menopause = st.selectbox(
-        "Menopausal status",
-        ["Unknown", "Premenopausal", "Perimenopausal", "Postmenopausal"]
-    )
-with c3:
-    stage = st.selectbox(
-        "Cancer context",
-        ["Not specified", "DCIS / Stage 0", "Stage I", "Stage II",
-         "Stage III", "Stage IV / metastatic", "Risk reduction"]
-    )
-    receptor = st.selectbox(
-        "Hormone receptor status",
-        ["Unknown", "ER-positive", "ER/PR-positive",
-         "PR-positive only / other", "Hormone receptor-negative"]
-    )
-    treatment_status = st.selectbox(
-        "Tamoxifen status",
-        ["Not started", "Currently taking", "Previously taken",
-         "Held by clinical team", "Unknown"]
-    )
-
-st.subheader("🧪 Renal function — automatic calculations")
-r1, r2, r3 = st.columns(3)
-with r1:
-    scr = st.number_input(
-        "Serum creatinine (mg/dL)", 0.0, 30.0, 0.0, 0.1,
-        help="Enter a measured value. Keep 0 if unavailable."
-    )
-with r2:
-    lab_egfr = st.number_input(
-        "Reported eGFR (optional)", 0.0, 200.0, 0.0, 0.1
-    )
-with r3:
-    lab_date = st.date_input("Lab date", value=None)
-
-egfr = ckdepi_2021(scr, age, sex)
-crcl = cockcroft_gault(scr, age, weight, sex)
-
-m1, m2, m3 = st.columns(3)
-m1.metric("Calculated eGFR", fmt(egfr), "mL/min/1.73 m²")
-m2.metric("Calculated CrCl", fmt(crcl), "mL/min")
-m3.metric(
-    "Reported eGFR",
-    fmt(lab_egfr) if lab_egfr > 0 else "Not entered",
-    "mL/min/1.73 m²"
-)
-
-st.caption(
-    "Equations: 2021 CKD-EPI creatinine eGFR and Cockcroft–Gault CrCl. "
-    "These are estimates, not diagnoses. Verify units, sex input, weight "
-    "choice, clinical context and laboratory results. They do not directly "
-    "calculate a tamoxifen dose."
-)
-
-# ------------------ PGX ------------------
-st.header("🧬 CYP2D6 Pharmacogenomics")
-
-genotypes = [
-    "Unknown / not tested",
-    "*1/*1",
-    "*1/*2",
-    "*1/*4",
-    "*1/*5",
-    "*1/*10",
-    "*1/*41",
-    "*2/*2",
-    "*2/*4",
-    "*2/*10",
-    "*2/*41",
-    "*4/*4",
-    "*4/*5",
-    "*4/*10",
-    "*4/*41",
-    "*5/*5",
-    "*10/*10",
-    "*10/*41",
-    "*41/*41",
-    "*1xN/*1",
-    "*1xN/*4",
-    "Other / complex diplotype",
-    "Lab result not interpretable",
-]
-phenotypes = [
-    "Unknown / not tested",
-    "Poor metabolizer",
-    "Intermediate metabolizer",
-    "Normal metabolizer",
-    "Rapid metabolizer",
-    "Ultrarapid metabolizer",
-    "Laboratory has not assigned phenotype",
-]
-
-g1, g2, g3 = st.columns(3)
-with g1:
-    genotype = st.selectbox("CYP2D6 genotype / diplotype", genotypes)
-with g2:
-    phenotype = st.selectbox("Reported CYP2D6 phenotype", phenotypes)
-with g3:
-    pgx_source = st.selectbox(
-        "Test source",
-        ["Not tested", "Clinical laboratory", "Research laboratory", "Published dataset"]
-    )
-pgx_notes = st.text_area(
-    "PGx interpretation / allele notes",
-    placeholder="Copy the laboratory interpretation and limitations, if available."
-)
-st.info(
-    "The diplotype list is a selection aid, not a complete allele database. "
-    "Copy-number changes, structural variants, allele function and test "
-    "limitations require laboratory interpretation. Do not infer phenotype "
-    "from the dropdown alone."
-)
-
-# ------------------ CLINICAL PHARMACOLOGY ------------------
-st.header("💊 Clinical Pharmacology")
-
-dose_reference = st.selectbox(
-    "Tamoxifen regimen reference",
-    [
-        "Not selected",
-        "20 mg/day — common reference regimen; verify indication and guideline",
-        "Other regimen — enter verified source",
-    ]
-)
-dose_other = st.text_input(
-    "Other regimen / duration / source (optional)",
-    placeholder="Enter a verified guideline or prescription reference"
-)
-indication = st.selectbox(
-    "Treatment indication",
-    [
-        "Not specified",
-        "Adjuvant endocrine therapy",
-        "Metastatic breast cancer",
-        "DCIS",
-        "Risk reduction / prevention",
-        "Other — verify with oncology team",
-    ]
-)
-duration = st.text_input(
-    "Documented intended duration",
-    placeholder="Enter clinician-recorded duration or guideline source"
-)
-current_dose = st.selectbox(
-    "Current prescribed dose (record only)",
-    ["Unknown", "5 mg/day", "10 mg/day", "20 mg/day", "Other — verify prescription"]
-)
-adherence = st.selectbox(
-    "Adherence status",
-    ["Unknown", "No reported difficulty", "Missed doses reported", "Needs review"]
-)
-clinical_notes = st.text_area(
-    "Clinical pharmacology notes",
-    placeholder="Indication, treatment history, prior endocrine therapy, clinical rationale"
-)
-
-st.info(
-    "The app records guideline references but does not prescribe a dose. "
-    "A dose increase, dose reduction or alternative endocrine regimen must "
-    "not be generated from genotype or renal estimates alone. Confirm the "
-    "current guideline and product label for the specific indication."
-)
-
-# ------------------ INTERACTIONS ------------------
-st.header("🔗 Drug Interaction Screening")
-
-inhibitors = {
-    "Fluoxetine": ("Strong CYP2D6 inhibitor", "May reduce CYP2D6-mediated endoxifen formation."),
-    "Paroxetine": ("Strong CYP2D6 inhibitor", "May reduce CYP2D6-mediated endoxifen formation."),
-    "Bupropion": ("Strong CYP2D6 inhibitor", "May reduce CYP2D6-mediated endoxifen formation."),
-    "Quinidine": ("Strong CYP2D6 inhibitor", "May reduce CYP2D6-mediated endoxifen formation."),
-    "Duloxetine": ("Moderate CYP2D6 inhibitor", "May reduce CYP2D6 activity; review dose and alternatives."),
-    "Mirabegron": ("Moderate CYP2D6 inhibitor", "May inhibit CYP2D6; verify clinical relevance."),
-    "Sertraline": ("Potential CYP2D6 inhibition", "Effect can vary with dose and patient factors."),
-    "Citalopram": ("Generally weaker CYP2D6 inhibition", "Review full medication list and clinical context."),
-    "Escitalopram": ("Generally weaker CYP2D6 inhibition", "Review full medication list and clinical context."),
+# ------------------------- SESSION DEFAULTS -------------------------
+defaults = {
+    "patient_id": "DEMO-001",
+    "patient_age": 52,
+    "patient_sex": "Female",
+    "weight": 65.0,
+    "height": 160.0,
+    "menopause": "Postmenopausal",
+    "indication": "Adjuvant breast cancer",
+    "er_status": "Positive",
+    "her2_status": "Unknown",
+    "treatment_status": "Currently taking tamoxifen",
+    "dose": 20,
+    "duration": "1–5 years",
+    "genotype": "*1/*1",
+    "phenotype": "Normal metabolizer",
+    "activity_score": "1.5–2.0",
+    "creatinine": 0.9,
+    "alt": 25.0,
+    "ast": 24.0,
+    "bilirubin": 0.7,
+    "adherence": "Good",
+    "symptoms": [],
+    "severity": 0,
+    "pk_mode": "Illustrative demo data"
 }
-selected_meds = st.multiselect(
-    "Select medicines to screen",
-    list(inhibitors.keys())
-)
-other_meds = st.text_area(
-    "Other medicines / supplements",
-    placeholder="Medicine name, dose, frequency"
-)
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
-if selected_meds:
-    int_df = pd.DataFrame([
-        {
-            "Medicine": med,
-            "Interaction screen": inhibitors[med][0],
-            "Mechanism / potential relevance": inhibitors[med][1],
-        }
-        for med in selected_meds
-    ])
-    st.dataframe(int_df, use_container_width=True, hide_index=True)
-    st.warning(
-        "Potential interaction flag only. A clinician/pharmacist should "
-        "review the medicine, indication and safe alternatives. Do not "
-        "stop antidepressants or other medicines independently."
+# Shared report facts
+report = {
+    "Prototype": "OncoPGx-CDDS v1.0",
+    "Assessment date": str(date.today()),
+    "Patient/demo ID": st.session_state.patient_id,
+}
+
+# ------------------------- OVERVIEW -------------------------
+if page == "Overview":
+    st.subheader("Research dashboard")
+    a, b, c = st.columns(3)
+    a.metric("Core modules", "6")
+    b.metric("PK/PD", "AUC + Cmax + Tmax")
+    c.metric("Output", "Doctor-facing report")
+
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+    st.markdown("### Workflow")
+    st.markdown("""
+    1. Enter demo patient and clinical information.
+    2. Review CYP2D6 genotype/phenotype and relevant medicines.
+    3. Enter measured concentration-time data or load clearly labelled demo values.
+    4. Review safety flags and guideline-based considerations.
+    5. Export a report for clinician review.
+    """)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.info(
+        "Automation roadmap: authorized EHR/FHIR connection, laboratory and "
+        "genomic-report ingestion, source verification, human review and audit trail. "
+        "These integrations are not connected in this demo."
     )
-else:
-    st.write("Select medicines to populate the interaction screen.")
 
-interaction_plan = st.text_area(
-    "Clinician review / interaction management plan",
-    placeholder="Record the prescriber's assessment and agreed plan."
-)
+# ------------------------- PATIENT & CLINICAL DATA -------------------------
+elif page == "Patient & Clinical Data":
+    st.subheader("👤 Patient and clinical profile")
+    st.caption("Use fictional/demo data for presentations. Avoid identifiable patient information.")
 
-# ------------------ PK / PD ------------------
-st.header("📈 PK/PD & Exposure Research")
+    with st.form("patient_form"):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            pid = st.text_input("Demo patient ID", value=st.session_state.patient_id)
+            age = st.number_input("Age (years)", 18, 110, int(st.session_state.patient_age))
+            sex = st.selectbox("Sex used for calculation", ["Female", "Male"])
+        with c2:
+            weight = st.number_input("Weight (kg)", 20.0, 250.0, float(st.session_state.weight))
+            height = st.number_input("Height (cm)", 100.0, 230.0, float(st.session_state.height))
+            menopause = st.selectbox(
+                "Menopause status",
+                ["Premenopausal", "Postmenopausal", "Perimenopausal", "Unknown"]
+            )
+        with c3:
+            indication = st.selectbox(
+                "Treatment indication",
+                [
+                    "Adjuvant breast cancer",
+                    "Metastatic breast cancer",
+                    "DCIS",
+                    "Risk reduction",
+                    "Other / unknown"
+                ]
+            )
+            er = st.selectbox("Estrogen receptor (ER)", ["Positive", "Negative", "Unknown"])
+            her2 = st.selectbox("HER2 status", ["Positive", "Negative", "Unknown"])
 
-st.write(
-    "Use measured concentration-time data or a documented, validated model. "
-    "This app does not infer individual concentration from genotype alone."
-)
-exposure_type = st.radio(
-    "Data source",
-    ["Measured concentration-time data", "No measured data available"]
-)
-auc = None
-pk_df = pd.DataFrame(columns=["Time (hours)", "Concentration (ng/mL)"])
+        treatment_status = st.selectbox(
+            "Treatment status",
+            ["Considering treatment", "Currently taking tamoxifen", "Treatment completed"]
+        )
+        dose = st.selectbox("Current recorded tamoxifen dose (mg/day)", [0, 10, 20, 30, 40])
+        duration = st.selectbox(
+            "Treatment duration",
+            ["Not started", "<1 year", "1–5 years", ">5 years", "Unknown"]
+        )
+        adherence = st.selectbox("Reported adherence", ["Good", "Variable", "Poor", "Unknown"])
 
-if exposure_type == "Measured concentration-time data":
+        submitted = st.form_submit_button("Save clinical profile", type="primary")
+
+    if submitted:
+        st.session_state.patient_id = pid.strip() or "DEMO-001"
+        st.session_state.patient_age = age
+        st.session_state.patient_sex = sex
+        st.session_state.weight = weight
+        st.session_state.height = height
+        st.session_state.menopause = menopause
+        st.session_state.indication = indication
+        st.session_state.er_status = er
+        st.session_state.her2_status = her2
+        st.session_state.treatment_status = treatment_status
+        st.session_state.dose = dose
+        st.session_state.duration = duration
+        st.session_state.adherence = adherence
+        st.success("Profile saved for this session.")
+
+    st.markdown("### Laboratory data")
+    l1, l2, l3, l4 = st.columns(4)
+    creatinine = l1.number_input("Serum creatinine (mg/dL)", 0.1, 15.0, float(st.session_state.creatinine), 0.1)
+    alt = l2.number_input("ALT (U/L)", 0.0, 5000.0, float(st.session_state.alt))
+    ast = l3.number_input("AST (U/L)", 0.0, 5000.0, float(st.session_state.ast))
+    bilirubin = l4.number_input("Total bilirubin (mg/dL)", 0.0, 100.0, float(st.session_state.bilirubin), 0.1)
+
+    if st.button("Save laboratory values"):
+        st.session_state.creatinine = creatinine
+        st.session_state.alt = alt
+        st.session_state.ast = ast
+        st.session_state.bilirubin = bilirubin
+        st.success("Laboratory values saved.")
+
+    age = int(st.session_state.patient_age)
+    sex = st.session_state.patient_sex
+    weight = float(st.session_state.weight)
+    creatinine = float(st.session_state.creatinine)
+
+    # Cockcroft–Gault CrCl estimate; not a tamoxifen dosing algorithm.
+    sex_factor = 0.85 if sex == "Female" else 1.0
+    crcl = ((140 - age) * weight * sex_factor) / (72 * creatinine)
+
+    # CKD-EPI 2021 creatinine equation (adult estimate).
+    scr = creatinine
+    female = sex == "Female"
+    k = 0.7 if female else 0.9
+    alpha = -0.241 if female else -0.302
+    sex_factor_egfr = 1.012 if female else 1.0
+    egfr = (
+        142
+        * min(scr / k, 1) ** alpha
+        * max(scr / k, 1) ** -1.200
+        * 0.9938 ** age
+        * sex_factor_egfr
+    )
+
+    st.markdown("### Calculated values")
+    m1, m2 = st.columns(2)
+    m1.metric("Estimated CrCl", f"{crcl:.1f} mL/min")
+    m2.metric("Estimated eGFR", f"{egfr:.1f} mL/min/1.73 m²")
     st.caption(
-        "Enter one row per measured time point. Use the same analyte, "
-        "consistent units and appropriate sampling times."
+        "These are estimates, depend on data quality and clinical context, and are "
+        "not tamoxifen-specific dose calculators. Review with a clinician."
     )
-    pk_df = st.data_editor(
-        pd.DataFrame({
-            "Time (hours)": [0.0, 2.0, 4.0, 8.0, 12.0, 24.0],
-            "Concentration (ng/mL)": [None, None, None, None, None, None],
-        }),
-        num_rows="dynamic",
-        use_container_width=True,
-        key="pk_editor",
+
+# ------------------------- PHARMACOGENOMICS -------------------------
+elif page == "Pharmacogenomics":
+    st.subheader("🧬 CYP2D6 pharmacogenomics")
+
+    genotype_options = [
+        "*1/*1", "*1/*2", "*1/*4", "*1/*10", "*1/*41",
+        "*4/*4", "*4/*10", "*10/*10", "*5/*5",
+        "Other / report not available"
+    ]
+    genotype = st.selectbox(
+        "CYP2D6 diplotype (from a validated report)",
+        genotype_options,
+        index=genotype_options.index(st.session_state.genotype)
+        if st.session_state.genotype in genotype_options else 0
     )
-    valid = pk_df.dropna().copy()
-    if len(valid) >= 2:
-        valid = valid.sort_values("Time (hours)")
-        if (
-            (valid["Time (hours)"] >= 0).all()
-            and (valid["Concentration (ng/mL)"] >= 0).all()
-            and valid["Time (hours)"].is_unique
-        ):
-            auc = float(np.trapezoid(
-                valid["Concentration (ng/mL)"],
-                valid["Time (hours)"]
+    phenotype = st.selectbox(
+        "Laboratory-reported phenotype",
+        [
+            "Ultrarapid metabolizer",
+            "Normal metabolizer",
+            "Intermediate metabolizer",
+            "Poor metabolizer",
+            "Indeterminate / unknown"
+        ],
+        index=[
+            "Ultrarapid metabolizer",
+            "Normal metabolizer",
+            "Intermediate metabolizer",
+            "Poor metabolizer",
+            "Indeterminate / unknown"
+        ].index(st.session_state.phenotype)
+        if st.session_state.phenotype in [
+            "Ultrarapid metabolizer", "Normal metabolizer",
+            "Intermediate metabolizer", "Poor metabolizer",
+            "Indeterminate / unknown"
+        ] else 1
+    )
+    activity_score = st.selectbox(
+        "Activity score (as reported by lab)",
+        ["0", "0.25", "0.5", "1.0", "1.25", "1.5–2.0", ">2.0", "Unknown"]
+    )
+
+    st.session_state.genotype = genotype
+    st.session_state.phenotype = phenotype
+    st.session_state.activity_score = activity_score
+
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+    st.markdown("### Mechanistic interpretation")
+    st.write(
+        "Tamoxifen is metabolized through several pathways. CYP2D6 contributes "
+        "to formation of endoxifen, an active metabolite. Reduced CYP2D6 activity "
+        "or CYP2D6 inhibition may lower endoxifen exposure."
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    if phenotype == "Poor metabolizer":
+        st.error(
+            "CPIC consideration: discuss alternative endocrine therapy with the "
+            "oncology team. If alternatives are contraindicated, 40 mg/day has been "
+            "discussed in guidance as a clinician-supervised option; it does not "
+            "necessarily normalize endoxifen exposure."
+        )
+    elif phenotype == "Intermediate metabolizer":
+        st.warning(
+            "CPIC consideration: review menopausal status, allele/activity score "
+            "and interacting medicines. Alternative endocrine therapy may be "
+            "considered; any dose change requires oncology review."
+        )
+    elif phenotype in ["Normal metabolizer", "Ultrarapid metabolizer"]:
+        st.success(
+            "CPIC guidance generally supports standard-of-care dosing (commonly "
+            "20 mg/day) and avoiding moderate/strong CYP2D6 inhibitors."
+        )
+    else:
+        st.info("No genotype-based interpretation until a valid result is available.")
+
+    st.caption("Genotype-to-phenotype translation can vary by allele and laboratory. Verify the original report.")
+
+# ------------------------- DRUG INTERACTIONS -------------------------
+elif page == "Drug Interactions":
+    st.subheader("💊 CYP2D6 interaction screening")
+    st.write("Select medicines present on the medication list. This is a screening aid, not a complete interaction checker.")
+
+    medication_list = [
+        "Fluoxetine",
+        "Paroxetine",
+        "Bupropion",
+        "Quinidine",
+        "Duloxetine",
+        "Mirabegron",
+        "Sertraline",
+        "Citalopram",
+        "Escitalopram",
+        "Other / not listed"
+    ]
+    selected_meds = st.multiselect("Current medicines", medication_list)
+
+    interaction_info = {
+        "Fluoxetine": ("Strong CYP2D6 inhibition", "May reduce endoxifen formation; clinician/pharmacist should review alternatives."),
+        "Paroxetine": ("Strong CYP2D6 inhibition", "May reduce endoxifen formation; clinician/pharmacist should review alternatives."),
+        "Bupropion": ("Strong CYP2D6 inhibition", "May reduce endoxifen formation; review indication and alternatives."),
+        "Quinidine": ("Strong CYP2D6 inhibition", "May reduce endoxifen formation; review with prescriber."),
+        "Duloxetine": ("Moderate CYP2D6 inhibition", "Potential to reduce endoxifen formation; review full medication list."),
+        "Mirabegron": ("Moderate CYP2D6 inhibition", "Potential interaction; verify dose, indication and alternatives."),
+        "Sertraline": ("Variable / weaker inhibition than fluoxetine or paroxetine", "Review overall regimen and clinical context."),
+        "Citalopram": ("Generally weaker CYP2D6 inhibition", "Review with pharmacist; do not stop antidepressants abruptly."),
+        "Escitalopram": ("Generally weaker CYP2D6 inhibition", "Review with pharmacist; do not stop antidepressants abruptly."),
+        "Other / not listed": ("Not assessed", "Run a comprehensive interaction check using a validated clinical resource.")
+    }
+
+    if selected_meds:
+        for med in selected_meds:
+            level, action = interaction_info[med]
+            st.markdown('<div class="panel">', unsafe_allow_html=True)
+            st.markdown(f"**{med}** — {level}")
+            st.write(action)
+            st.markdown("</div>", unsafe_allow_html=True)
+    else:
+        st.success("No medicines selected. This does not confirm absence of interactions.")
+
+    if selected_meds and st.session_state.phenotype in [
+        "Poor metabolizer", "Intermediate metabolizer"
+    ]:
+        st.warning(
+            "Combined concern: reduced CYP2D6 activity plus a CYP2D6-inhibiting medicine "
+            "warrants clinician/pharmacist review."
+        )
+
+    st.caption("Interaction strength can vary by dose and source. Confirm with an authoritative interaction database.")
+
+# ------------------------- PK/PD & AUC -------------------------
+elif page == "PK/PD & AUC":
+    st.subheader("📈 Tamoxifen / Endoxifen PK/PD explorer")
+    st.write(
+        "Enter actual concentration-time observations for an observed AUC calculation, "
+        "or load labelled illustrative data for a presentation demo."
+    )
+
+    analyte = st.selectbox("Analyte", ["Endoxifen", "Tamoxifen", "Other (specify in notes)"])
+    unit = st.selectbox("Concentration unit", ["ng/mL", "µg/L", "Other / specify in notes"])
+    mode = st.radio(
+        "Data source",
+        ["Illustrative demo data", "Enter measured concentration-time data"],
+        horizontal=True
+    )
+
+    if mode == "Illustrative demo data":
+        pk_df = pd.DataFrame({
+            "Time (hours)": [0, 2, 4, 8, 12, 24],
+            "Concentration": [0.0, 2.1, 3.8, 3.2, 2.6, 1.4]
+        })
+        st.warning(
+            "These are invented illustrative values for demonstrating the graph and calculation. "
+            "They are not patient measurements, reference ranges or a validated PK simulation."
+        )
+    else:
+        st.caption("Use actual laboratory values and correct sampling times. Remove blank rows before calculation.")
+        pk_df = st.data_editor(
+            pd.DataFrame({
+                "Time (hours)": [0.0, 2.0, 4.0],
+                "Concentration": [None, None, None]
+            }),
+            num_rows="dynamic",
+            use_container_width=True,
+            key="pk_data_editor"
+        )
+
+    notes = st.text_input("Sampling / dose / report notes (optional)")
+    df = pk_df.copy()
+    df["Time (hours)"] = pd.to_numeric(df["Time (hours)"], errors="coerce")
+    df["Concentration"] = pd.to_numeric(df["Concentration"], errors="coerce")
+    df = df.dropna().sort_values("Time (hours)").reset_index(drop=True)
+
+    if len(df) >= 2:
+        times = df["Time (hours)"].to_numpy(dtype=float)
+        conc = df["Concentration"].to_numpy(dtype=float)
+        valid = (
+            np.all(times >= 0)
+            and np.all(conc >= 0)
+            and np.all(np.diff(times) > 0)
+        )
+
+        if valid:
+            # Trapezoidal observed AUC over the entered sampling interval.
+            auc = float(np.trapz(conc, times))
+            cmax = float(np.max(conc))
+            tmax = float(times[np.argmax(conc)])
+            tmin, tmax_interval = float(times.min()), float(times.max())
+
+            k1, k2, k3 = st.columns(3)
+            k1.metric(f"AUC ({unit}·h)", f"{auc:.3f}")
+            k2.metric(f"Cmax ({unit})", f"{cmax:.3f}")
+            k3.metric("Tmax (hours)", f"{tmax:.2f}")
+
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=times, y=conc,
+                mode="lines+markers",
+                name="Concentration",
+                fill="tozeroy",
+                line=dict(width=3)
             ))
-            st.metric("Observed-data AUC (trapezoidal)", f"{auc:.2f}", "ng·h/mL")
-            fig = px.line(
-                valid, x="Time (hours)", y="Concentration (ng/mL)",
-                markers=True, title="Entered concentration-time profile"
+            fig.update_layout(
+                title=f"{analyte}: concentration vs time",
+                xaxis_title="Time (hours)",
+                yaxis_title=f"Concentration ({unit})",
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(10,18,35,0.75)",
+                height=430
             )
             st.plotly_chart(fig, use_container_width=True)
-            st.caption(
-                "This is AUC over the entered observation window, not "
-                "automatically AUC to infinity or a validated prediction. "
-                "Units and sampling design matter."
+
+            st.info(
+                f"Observed interval: {tmin:g}–{tmax_interval:g} hours. "
+                "This is AUC over the entered observations only, not automatically AUC over 24 hours, "
+                "AUC to infinity, steady-state exposure or a therapeutic target."
+            )
+
+            csv = df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "⬇️ Download PK/PD data (CSV)",
+                data=csv,
+                file_name="oncopgx_pkpd_data.csv",
+                mime="text/csv"
+            )
+            st.markdown("#### Interpretation limits")
+            st.write(
+                "The graph describes the supplied data. It does not predict endoxifen concentration "
+                "from genotype, infer drug exposure from dose alone, or calculate an individualized dose. "
+                "A validated PK model requires appropriate sampling, assay details, dose timing, "
+                "adherence and external validation."
             )
         else:
-            st.error("Check time points: use non-negative, unique time values and non-negative concentrations.")
+            st.error("Check data: times must be unique, non-negative and strictly increasing; concentrations must be non-negative.")
     else:
-        st.info("Enter at least two valid measured time-concentration pairs to calculate observed-data AUC.")
+        st.info("Enter at least two complete time-concentration observations to calculate AUC.")
 
-model_status = st.selectbox(
-    "Prediction model status",
-    [
-        "No validated individual PK model configured",
-        "External model available — not implemented in this prototype",
-    ]
-)
-st.caption(
-    "No synthetic concentration curve is presented as a real patient prediction. "
-    "Population PK prediction requires a specified model, parameters, dosing "
-    "history and validation for the intended population."
-)
+    st.caption("AUC is calculated by the trapezoidal rule using the concentration units and times entered.")
 
-# ------------------ TOXICITY ------------------
-st.header("🛡️ Toxicity & Safety")
+# ------------------------- TOXICITY & SAFETY -------------------------
+elif page == "Toxicity & Safety":
+    st.subheader("🩺 Toxicity and safety review")
+    st.write("This module records reported symptoms and clinical flags. It is not a trained or validated toxicity predictor.")
 
-risk_factors = st.multiselect(
-    "Relevant clinical risk factors",
-    [
-        "History of DVT / pulmonary embolism",
-        "Liver disease",
-        "Abnormal uterine bleeding / endometrial concern",
-        "History of stroke",
-        "Immobility",
-        "Cardiovascular risk factors",
-        "Pregnancy-related concern",
-        "Adherence difficulty",
-        "Other significant comorbidity",
-    ]
-)
-symptoms = [
-    "Hot flashes", "Fatigue", "Nausea", "Mood changes",
-    "Joint / muscle symptoms", "Vaginal symptoms",
-    "Abnormal uterine bleeding", "Leg swelling or pain",
-    "Chest pain / shortness of breath", "Visual symptoms",
-]
-symptom_values = {}
-for symptom in symptoms:
-    symptom_values[symptom] = st.select_slider(
-        symptom,
-        options=["Not reported", "Mild", "Moderate", "Severe"],
-        value="Not reported",
-        key=f"tox_{symptom}",
+    symptoms = st.multiselect(
+        "Reported symptoms",
+        [
+            "Hot flashes",
+            "Fatigue",
+            "Nausea",
+            "Mood changes",
+            "Joint or muscle pain",
+            "Abnormal vaginal bleeding",
+            "Leg swelling or pain",
+            "Shortness of breath",
+            "Chest pain",
+            "Visual changes",
+            "Other"
+        ],
+        default=st.session_state.symptoms
+    )
+    severity = st.slider("Overall reported symptom severity (0–10)", 0, 10, int(st.session_state.severity))
+    liver_concern = st.checkbox("Known liver disease or clinician-identified liver concern")
+    clot_history = st.checkbox("History of venous thromboembolism / blood clot")
+    pregnancy_concern = st.checkbox("Pregnancy possible or pregnancy status uncertain")
+
+    st.session_state.symptoms = symptoms
+    st.session_state.severity = severity
+
+    if any(s in symptoms for s in ["Chest pain", "Shortness of breath", "Leg swelling or pain"]):
+        st.error(
+            "Urgent safety flag: these symptoms may indicate a serious condition such as a blood clot. "
+            "Seek urgent medical assessment; do not rely on this demo."
+        )
+    if "Abnormal vaginal bleeding" in symptoms:
+        st.warning("Prompt clinician assessment is important for abnormal vaginal bleeding.")
+    if liver_concern or clot_history or pregnancy_concern:
+        st.warning("Relevant safety history selected: review with the treating oncology team.")
+    if severity >= 7:
+        st.warning("High reported symptom burden: prompt clinical review is appropriate.")
+    elif severity >= 4:
+        st.info("Moderate reported symptom burden: document and review with the care team.")
+    else:
+        st.success("No high symptom-severity threshold reached in this self-reported screen.")
+
+    st.caption(
+        "Flags are rule-based prompts, not probabilities, diagnostic outputs or a validated toxicity score. "
+        "Clinical evaluation and local emergency guidance take precedence."
     )
 
-toxicity_notes = st.text_area("Toxicity notes / onset / duration / impact")
-active_symptoms = {
-    k: v for k, v in symptom_values.items() if v != "Not reported"
-}
-if active_symptoms:
-    tdf = pd.DataFrame(
-        [{"Symptom": k, "Reported severity": v} for k, v in active_symptoms.items()]
-    )
-    fig = px.bar(
-        tdf, x="Symptom", y="Reported severity", color="Reported severity",
-        title="Patient-reported symptom severity"
-    )
-    fig.update_layout(xaxis_tickangle=-35)
-    st.plotly_chart(fig, use_container_width=True)
+# ------------------------- DOCTOR REPORT -------------------------
+elif page == "Doctor Report":
+    st.subheader("📄 Clinician-facing summary")
+    st.write("Review the generated summary before using it. This is a demo report, not a medical record.")
 
-st.error(
-    "New chest pain, sudden breathlessness, one-sided leg swelling/pain, "
-    "stroke-like symptoms or severe bleeding require urgent medical assessment. "
-    "Do not wait for an app result."
-)
+    pid = st.session_state.patient_id
+    phenotype = st.session_state.phenotype
+    genotype = st.session_state.genotype
+    age = st.session_state.patient_age
+    sex = st.session_state.patient_sex
+    dose = st.session_state.dose
+    indication = st.session_state.indication
+    menopause = st.session_state.menopause
+    adherence = st.session_state.adherence
+    creatinine = st.session_state.creatinine
+    alt = st.session_state.alt
+    ast = st.session_state.ast
+    bilirubin = st.session_state.bilirubin
+    symptoms = st.session_state.symptoms
+    severity = st.session_state.severity
 
-# ------------------ REPORT ------------------
-st.header("📄 Research Report")
+    if phenotype in ["Normal metabolizer", "Ultrarapid metabolizer"]:
+        pgx_summary = (
+            "CPIC guidance generally supports standard-of-care tamoxifen dosing "
+            "(commonly 20 mg/day); review CYP2D6 inhibitors."
+        )
+    elif phenotype == "Intermediate metabolizer":
+        pgx_summary = (
+            "Review allele/activity score, menopausal status and interacting medicines. "
+            "Discuss endocrine alternatives with oncology; any dose change requires clinician review."
+        )
+    elif phenotype == "Poor metabolizer":
+        pgx_summary = (
+            "CPIC recommends discussing alternative endocrine therapy with oncology. "
+            "40 mg/day may be considered only in selected circumstances under clinician supervision "
+            "when an aromatase inhibitor is contraindicated; exposure may remain lower than in normal metabolizers."
+        )
+    else:
+        pgx_summary = "Phenotype unknown/indeterminate: no genotype-based recommendation generated."
 
-review_status = st.selectbox(
-    "Review status",
-    ["Not reviewed", "Pending oncology review", "Reviewed by treating team"]
-)
-review_notes = st.text_area("Reviewer notes / follow-up plan")
-alternatives = st.multiselect(
-    "Options for oncology-team discussion",
-    [
-        "Review indication and guideline",
-        "Review interacting medicines with prescriber/pharmacist",
-        "Review adherence and tolerability",
-        "Discuss alternative endocrine therapy",
-        "Review menopausal / ovarian function status",
-        "Specialist PGx consultation",
-        "Consider drug-level monitoring if clinically appropriate",
-    ]
-)
+    report_text = f"""
+# OncoPGx-CDDS — Clinician Review Report
 
-report = f"""# OncoPGx-CDDS Research Report
+**Report date:** {date.today()}
+**Patient/demo ID:** {pid}
+**System status:** Research prototype; not validated for clinical decision-making
 
-**Prototype disclaimer:** Not for autonomous clinical decisions. Treating-team review required.
-
-## Patient
-- Research ID: {patient_id}
+## 1. Clinical profile
 - Age: {age}
-- Sex used for equations: {sex}
-- Weight: {weight} kg
-- Menopausal status: {menopause}
-- Cancer context: {stage}
-- Receptor status: {receptor}
-- Tamoxifen status: {treatment_status}
-
-## Renal estimates
-- Serum creatinine: {scr} mg/dL
-- Calculated 2021 CKD-EPI eGFR: {fmt(egfr)} mL/min/1.73 m²
-- Calculated Cockcroft-Gault CrCl: {fmt(crcl)} mL/min
-- Reported eGFR: {lab_egfr if lab_egfr > 0 else 'Not entered'}
-- Lab date: {lab_date}
-
-## Pharmacogenomics
-- CYP2D6 diplotype: {genotype}
-- Reported phenotype: {phenotype}
-- Test source: {pgx_source}
-- Notes: {pgx_notes}
-
-## Clinical pharmacology
+- Sex used for calculations: {sex}
+- Menopause status: {menopause}
 - Indication: {indication}
-- Regimen reference: {dose_reference}
-- Other regimen/source: {dose_other}
-- Current prescribed dose (recorded): {current_dose}
-- Duration: {duration}
-- Adherence: {adherence}
-- Clinical notes: {clinical_notes}
+- Recorded tamoxifen dose: {dose} mg/day
+- Reported adherence: {adherence}
 
-## Interaction screen
-- Selected medicines: {', '.join(selected_meds) if selected_meds else 'None selected'}
-- Other medicines: {other_meds}
-- Review plan: {interaction_plan}
+## 2. Pharmacogenomics
+- CYP2D6 diplotype entered: {genotype}
+- Reported phenotype entered: {phenotype}
+- Guideline consideration: {pgx_summary}
 
-## PK/PD
-- Data source: {exposure_type}
-- Observed-data AUC: {auc if auc is not None else 'Not calculated'}
-- Prediction model status: {model_status}
+## 3. Laboratory values entered
+- Serum creatinine: {creatinine} mg/dL
+- ALT: {alt} U/L
+- AST: {ast} U/L
+- Total bilirubin: {bilirubin} mg/dL
 
-## Toxicity
-- Risk factors: {', '.join(risk_factors) if risk_factors else 'None selected'}
-- Symptoms: {active_symptoms if active_symptoms else 'None reported'}
-- Notes: {toxicity_notes}
+## 4. Symptoms entered
+- Symptoms: {", ".join(symptoms) if symptoms else "None selected"}
+- Overall self-reported severity: {severity}/10
 
-## Review
-- Status: {review_status}
-- Notes: {review_notes}
-- Options for discussion: {', '.join(alternatives) if alternatives else 'None selected'}
+## 5. Clinical review checklist
+- Confirm the original CYP2D6 laboratory report and allele interpretation.
+- Review all prescribed, OTC and herbal medicines for interactions.
+- Confirm indication, menopausal status, adherence and treatment history.
+- Review relevant symptoms, laboratory data and contraindications.
+- Verify current local prescribing information and oncology guidance.
+- Do not change the prescribed dose based on this prototype alone.
 
-## Limitations
-- This report reflects manually entered information.
-- Renal estimates are not diagnoses and do not directly determine tamoxifen dose.
-- Interaction flags are screening prompts, not proof of clinical harm.
-- No patient-specific PK concentration prediction is generated by this prototype.
-- Final clinical interpretation and treatment decisions require the oncology team.
+## 6. PK/PD
+PK/PD values are calculated in the separate PK/PD module from the selected data set.
+Illustrative values are not patient measurements. No individual exposure or dose prediction is generated by this report.
+
+## 7. Limitations
+This prototype uses user-entered data and rule-based flags. It is not connected to an EHR, does not validate laboratory/genomic reports, and is not a trained or externally validated toxicity prediction model. All decisions require qualified clinical review.
 
 ## References
-- CPIC CYP2D6 and tamoxifen guideline: https://pmc.ncbi.nlm.nih.gov/articles/5931215/
-- NCI hormone therapy: https://www.cancer.gov/types/breast/treatment/hormone-therapy
-- FDA tamoxifen label: https://www.accessdata.fda.gov/drugsatfda_docs/label/2018/021807s005lbl.pdf
+- CPIC Guideline for CYP2D6 and Tamoxifen Therapy (2018):
+  https://pmc.ncbi.nlm.nih.gov/articles/5931215/
+- FDA tamoxifen product labeling:
+  https://www.accessdata.fda.gov/drugsatfda_docs/label/2018/021807s005lbl.pdf
 """
-
-st.download_button(
-    "⬇️ Download research report",
-    data=report,
-    file_name=f"OncoPGx_{patient_id or 'patient'}_report.md",
-    mime="text/markdown",
-    use_container_width=True,
-)
-with st.expander("Preview report"):
-    st.markdown(report)
+    st.markdown(report_text)
+    st.download_button(
+        "⬇️ Download clinician report (Markdown)",
+        data=report_text,
+        file_name=f"OncoPGx_report_{pid}.md",
+        mime="text/markdown"
+    )
 
 st.markdown("---")
 st.caption(
-    "OncoPGx-CDDS | Research prototype. Use synthetic or properly "
-    "de-identified data for demonstrations. Validate calculations and "
-    "clinical content before research or clinical use."
+    "OncoPGx-CDDS is a research prototype. No real-time EHR connection, "
+    "validated predictive model, or autonomous prescribing functionality is enabled."
 )
