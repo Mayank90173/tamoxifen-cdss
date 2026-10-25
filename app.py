@@ -144,7 +144,7 @@ else:
             primary_recommendation = "Ovarian Function Suppression (OFS) + Aromatase Inhibitor (AI) Class Rotation"
             regimen_specification = "Letrozole 2.5 mg Oral QD + Goserelin (LHRH Agonist) 3.6 mg SC Depot Every 28 Days"
             alternative_options = "Tamoxifen Protocol Adjustment to 40mg Daily if AI is contraindicated due to osteoporosis."
-            duration_protocol = f"{base_duration} (OFS strictly maintained for minimum 5 years)."
+            duration_protocol = base_duration + " (OFS strictly maintained for minimum 5 years)."
             guideline_tags = ["CPIC 2023 Tamoxifen Update", "ASCO/SOFT/TEXT Trial Clinical Guidelines"]
         elif "Intermediate" in cyp2d6_pheno:
             primary_recommendation = "Tamoxifen Standard Protocol with Preemptive Serum TDM Monitoring Matrix"
@@ -171,7 +171,7 @@ else:
             regimen_specification = "Anastrozole 1 mg Oral QD"
             alternative_options = "Tamoxifen Malate 20 mg QD if severe osteoporosis or accelerated T-Score degradation breaches safety thresholds."
             duration_protocol = base_duration
-            guideline_tags = ["ESMO Guidelines", "ASCO Early Breast Cancer Guidelines"]
+            guideline_tags = ["ESMO Guidelines", "ASCO Primary Adjuvant Protocols"]
 
 # ─── REAL-TIME VISUALIZATIONS SECTION (RIGHT COLUMNS DISPLAY) ─────────────────
 with col2:
