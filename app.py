@@ -70,27 +70,27 @@ else:
 tabs = st.tabs(["🧬 Mechanism & PK/PGx","💊 Interaction checker","🛡️ Pharmacovigilance","📚 Standard vs modifications","📊 Live dashboard"])
 
 with tabs[0]:
-    st.subheader("How tamoxifen is activated")
-    st.write("Tamoxifen is a prodrug. CYP2D6 contributes to formation of endoxifen, an active metabolite. Genetic variation and CYP2D6-inhibiting medicines can lower endoxifen exposure.")
-    fig = go.Figure()
-    nodes=[(0.08,.60,"Tamoxifen\\n(parent drug)","#1d4ed8"),(0.35,.60,"N-desmethyl-\\ntamoxifen","#0f766e"),
-           (0.62,.60,"Endoxifen\\n(active metabolite)","#0f766e"),(0.89,.60,"Clinical response\\n& tolerability","#475569"),
-           (.34,.17,"CYP2D6 phenotype\\n(genetic factor)","#7c3aed"),(.62,.17,"CYP2D6 inhibitors\\n(medicine factor)","#b45309")]
-    for x,y,label,color in nodes:
-        fig.add_shape(type="rect",x0=x-.09,x1=x+.09,y0=y-.12,y1=y+.12,line=dict(color=color,width=2),fillcolor=color)
-        fig.add_annotation(x=x,y=y,text=label.replace("\\n","<br>"),showarrow=False,font=dict(color="white",size=11),align="center")
-    for x0,y0,x1,y1,col in [(.17,.60,.26,.60,"#9fb3c8"),(.44,.60,.53,.60,"#9fb3c8"),(.71,.60,.80,.60,"#9fb3c8"),(.36,.29,.58,.47,"#a78bfa"),(.62,.29,.63,.47,"#fbbf24")]:
-        fig.add_annotation(x=x1,y=y1,ax=x0,ay=y0,xref="x",yref="y",axref="x",ayref="y",showarrow=True,arrowhead=3,arrowwidth=2,arrowcolor=col)
-    fig.update_layout(template="plotly_dark",height=380,margin=dict(l=10,r=10,t=10,b=10),xaxis=dict(visible=False,range=[0,1]),yaxis=dict(visible=False,range=[0,0.9]),showlegend=False)
-    st.plotly_chart(fig,use_container_width=True)
-    st.info("Conceptual pathway only: this app does not calculate measured endoxifen concentrations or predict treatment response.")
-    st.markdown("**Future validated-model variables:** allele/activity score, inhibitor strength/duration, adherence, measured endoxifen, liver function, menopausal status, treatment context and a pre-specified clinical endpoint.")
+    st.subheader("Live mechanism explorer — multiple pathways")
+    st.caption("Choose a mechanism below. The diagram, explanation and clinical relevance update live when you change the selection or scenario inputs.")
 
-with tabs[1]:
-    st.subheader("Drug–drug interaction screen")
-    if selected_meds:
-        rows=[]
-        for m in selected_meds:
-            group,mechanism,flag,action=INTERACTIONS[m]
-            rows.append({"Medicine":m,"Mechanism/group":group,"Screening flag":flag,"Why it matters":mechanism,"Next step":action})
-        st.dataframe(pd.DataFrame(rows),use_container_width=True,hide_index=True)
+    MECHANISMS = {
+        "1 · CYP2D6 pharmacogenomics": {
+            "title": "CYP2D6 genotype → endoxifen formation",
+            "description": "Tamoxifen undergoes metabolism to several metabolites. CYP2D6 contributes to formation of endoxifen, an active metabolite. Reduced-function alleles can reduce CYP2D6 activity; the diplotype and activity score must be interpreted using a validated laboratory report.",
+            "nodes": [("Tamoxifen", "Parent drug", "#2563eb"), ("N-desmethyl tamoxifen", "Intermediate metabolite", "#0f766e"), ("Endoxifen", "Active metabolite", "#0f766e"), ("Clinical effect", "Not predicted by this diagram", "#475569")],
+            "edges": [(0,1),(1,2),(2,3)],
+            "modifier": "CYP2D6 diplotype / activity score",
+            "effect": "May alter endoxifen formation. This diagram does not estimate an individual concentration or response.",
+            "source": "CPIC tamoxifen–CYP2D6 guideline (2018); confirm current guideline and validated phenotype translation."
+        },
+        "2 · CYP2D6 inhibitor interaction": {
+            "title": "Co-medication inhibits CYP2D6",
+            "description": "Some medicines inhibit CYP2D6 and can reduce conversion toward endoxifen. The magnitude depends on the specific medicine, dose, duration, other drugs and patient context.",
+            "nodes": [("Tamoxifen", "Parent drug", "#2563eb"), ("CYP2D6", "Metabolic enzyme", "#7c3aed"), ("Endoxifen", "Active metabolite", "#0f766e"), ("Potentially lower formation", "Qualitative only", "#b45309")],
+            "edges": [(0,1),(1,2),(2,3)],
+            "modifier": "CYP2D6-inhibiting co-medication",
+            "effect": "Selected inhibitors trigger a medication-review prompt. Never stop or switch a prescribed medicine without the prescriber.",
+            "source": "CPIC 2018; verify each interaction against current product information / a trusted interaction resource."
+        },
+        "3 · CYP3A4 induction": {
+            "title": "Enzyme induction may alter tamoxifen exposure",
