@@ -2,9 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime
 
-# ─── INTERFACE CONFIGURATION & HIGH-FIDELITY Presentation Theme ──────────────
 st.set_page_config(
     page_title="OncoPGx Core Platform v5.6",
     layout="wide",
@@ -15,11 +13,9 @@ st.markdown("""
     <style>
     .stApp { background-color: #02040a; color: #e2e8f0; }
     h1, h2, h3, h4, p, span, label, div { font-family: 'Inter', system-ui, sans-serif; }
-    
     .innovation-banner {
         background: linear-gradient(135deg, #012022 0%, #030712 60%, #150c33 100%);
-        border-radius: 16px; padding: 2rem; position: relative;
-        border: 1px solid rgba(16, 185, 129, 0.4);
+        border-radius: 16px; padding: 2rem; border: 1px solid rgba(16, 185, 129, 0.4);
         box-shadow: 0 25px 50px rgba(0, 0, 0, 0.8); margin-bottom: 2rem;
     }
     .hud-header {
@@ -33,7 +29,6 @@ st.markdown("""
     }
     .metric-val { font-size: 26px; font-weight: 900; color: #00f2fe; margin: 4px 0; font-family: monospace; }
     .metric-lbl { font-size: 11px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; font-weight: 600; }
-    
     .directive-card {
         background: rgba(15, 23, 42, 0.6); padding: 1.8rem; border-radius: 14px; 
         border: 1px solid rgba(255,255,255,0.08); margin-top: 1rem; line-height: 1.6;
@@ -48,15 +43,14 @@ st.markdown("""
 
 st.markdown("""
     <div class="innovation-banner">
-        <span class="system-badge">✦ TRANSLATIONAL ECOSPEED // ESTIC 2026 PLATFORM PROTOTYPE</span>
-        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 OncoPGx India v5.6: Full-Fledged Precision Oncology Architecture</h1>
+        <span class="system-badge">✦ TRANSLATIONAL ECOSPEED // ESTIC 2026 CONF MATRIX</span>
+        <h1 style='color: #ffffff !important; margin: 5px 0 0 0; font-size:32px; font-weight:800; letter-spacing:-0.5px;'>🧬 OncoPGx India v5.6: Precision Oncology Architecture</h1>
         <p style='color: #94a3b8 !important; margin: 5px 0 0 0; font-size:13px; font-family: monospace;'>
-            Integrated Real-Time PK Graph • Multi-Guideline Ingestion (CPIC/ASCO/ESMO) • Independent Investigator Framework: Mayank Virmani
+            Integrated Real-Time PK Graph • Multi-Guideline Ingestion (CPIC/ASCO/ESMO) • Lead Investigator: Mayank Virmani
         </p>
     </div>
 """, unsafe_allow_html=True)
 
-# ─── HIGH-DENSITY INPUT REGISTRATION GRID (TWO COLUMN WORKSPACE) ──────────────
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
@@ -90,10 +84,9 @@ with col1:
         "Rifampicin [STRONG Trans-Activation Inducer - Accelerated Drug Loss]",
         "Ketoconazole [STRONG Metabolic Clearance Suppression Matrix]"
     ])
-    
     compliance = st.slider("Patient Adherence Index Verification (MEMS %)", 10, 100, 100) / 100.0
 
-# ─── REAL-TIME QUANTITATIVE SYSTEMS PHARMACOLOGY LOGIC ENGINE ─────────────────
+# ─── PHARMACOKINETIC LOGIC Engine ─────────────────
 g_mult = 0.85 if gender == "Female" else 1.0
 computed_crcl = round(((140 - age) * weight) / (72 * creatinine) * g_mult, 1)
 k_e_base = 0.022 if computed_crcl >= 60 else 0.040 if computed_crcl >= 30 else 0.065
@@ -121,13 +114,12 @@ elif "Ketoconazole" in cyp3a4_mod:
 
 final_predicted_steady_state = round(metabolic_velocity * compliance, 2)
 
-# ─── REAL-TIME CLINICAL MATRIX RESOLUTION ENGINE ─────────────────────────────
+# ─── CLINICAL DECISION MATRIX ─────────────────────────────
 guideline_text = "ASCO Endocrine Mandate, ESMO Core Biomarker Matrix"
 primary_recommendation = ""
 alternative_options = ""
 duration_protocol = ""
 regimen_specification = ""
-
 sop_status = "NOMINAL PIPELINE"
 sop_rationale = "Patient exhibits balanced genomic clearance parameters. Standard clinical track approved."
 
@@ -142,7 +134,6 @@ if "Negative" in er_status:
 else:
     is_high_risk = "Node-Positive" in nodal_status or tumor_size > 50
     base_duration = "5 Years Adjuvant Protocol" if not is_high_risk else "Extended 10 Years Protocol (ATLAS & aTTOM Trials)"
-    
     if is_high_risk:
         sop_status = "TIMELINE EXTENSION INTERVENTION"
         sop_rationale = "High tumor load or nodal matrix involvement requires transition to 10 years framework based on ATLAS trial guidelines."
@@ -155,23 +146,27 @@ else:
             duration_protocol = f"{base_duration} (OFS strictly maintained for minimum 5 years)."
             guideline_text = "CPIC 2023 Tamoxifen Update, ASCO/SOFT/TEXT Trial Clinical Guidelines"
             sop_status = "DRUG CLASS VARIATION ROUTING"
-            sop_rationale = "Active Endoxifen concentration falls below the 16 nM floor due to poor metabolizer profile or drug interaction. Overriding standard Tamoxifen."
+            sop_rationale = "Active Endoxifen concentration falls below the 16 nM floor due to poor metabolizer profile or drug DDI."
         elif "Intermediate" in cyp2d6_pheno:
             primary_recommendation = "⚠️ Tamoxifen Standard Protocol + Accelerated Serum TDM Monitoring Matrix"
             regimen_specification = "Tamoxifen Malate 20 mg Oral QD"
-            alternative_options = "Dose-Escalation to 40 mg Oral QD (Split 20mg BID) if subsequent 90-day TDM reflects values < 16 nM."
+            alternative_options = "Dose-Escalation to 40 mg Oral QD if subsequent 90-day TDM reflects values < 16 nM."
             duration_protocol = base_duration
             guideline_text = "CPIC 2023 Guideline Axis, DPWG Consensus Guidelines"
             sop_status = "CONTINGENT TDM MODIFICATION"
-            sop_rationale = "Borderline clearance via South Asian *10 Intermediate Metabolizer trait. Action triggers for dynamic titration based on TDM."
+            sop_rationale = "Borderline clearance via South Asian *10 Intermediate Metabolizer trait. reflex action active."
         else:
             primary_recommendation = "Standard Adjuvant Tamoxifen Monotherapy Corridor Approved"
             regimen_specification = "Tamoxifen Malate 20 mg Oral QD"
             alternative_options = "Add OFS (Goserelin Depot) if dynamic staging drops or nodal recurrence markers scale up."
             duration_protocol = base_duration
             guideline_text = "ASCO Endocrine Mandate, ESMO Core Biomarker Matrix"
-            
-    else: # Postmenopausal Settings
+    else: # Postmenopausal
         if "Poor" in cyp2d6_pheno or is_phenoconverted:
             primary_recommendation = "🎯 Primary Aromatase Inhibitor (AI) Monotherapy Deployment"
             regimen_specification = "Letrozole 2.5 mg Oral QD OR Anastrozole 1 mg Oral QD"
+            alternative_options = "Exemestane 25 mg Oral QD if muscular arthralgia triggers on letrozole."
+            duration_protocol = "5 Years Standard AI. If Node-Positive, execute sequential switch to Tamoxifen up to 10 Years."
+            guideline_text = "ASCO Postmenopausal Consensus, ESMO Early Breast Cancer Guidelines"
+            sop_status = "V1 PATHWAY MODIFICATION"
+            sop_rationale = "Postmenopausal system with absolute CYP2D6 failure is routed directly to AI."
