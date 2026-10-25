@@ -57,7 +57,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# ─── DATA INPUT GRID SETUP (TWO COLUMN WORKSPACE) ──────────────────────────────
+# ─── HIGH-DENSITY INPUT REGISTRATION GRID (TWO COLUMN WORKSPACE) ──────────────
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
@@ -171,7 +171,7 @@ else:
             regimen_specification = "Anastrozole 1 mg Oral QD"
             alternative_options = "Tamoxifen Malate 20 mg QD if severe osteoporosis or accelerated T-Score degradation breaches safety thresholds."
             duration_protocol = base_duration
-            guideline_tags = ["ESMO Guidelines", "ASCO Primary Adjuvant Protocols"]
+            guideline_tags = ["ESMO Guidelines", "ASCO Early Breast Cancer Guidelines"]
 
 # ─── REAL-TIME VISUALIZATIONS SECTION (RIGHT COLUMNS DISPLAY) ─────────────────
 with col2:
