@@ -346,7 +346,7 @@ elif page == "Drug Interactions":
         "Escitalopram",
         "Other / not listed"
     ]
-    selected_meds = st.multiselect("Current medicines", medication_list)
+    selected_meds = st.multiselect(     "Current medicines",     medication_list,     key="selected_meds" )
 
     interaction_info = {
         "Fluoxetine": ("Strong CYP2D6 inhibition", "May reduce endoxifen formation; clinician/pharmacist should review alternatives."),
@@ -581,6 +581,188 @@ elif page == "Doctor Report":
         )
     else:
         pgx_summary = "Phenotype unknown/indeterminate: no genotype-based recommendation generated."
+        
+    # -------- EVIDENCE-BASED TREATMENT DECISION SUPPORT --------
+
+    st.markdown("## 🧠 Treatment Recommendation Engine")
+    st.caption(
+        "Rule-based research prototype. Outputs are options for clinician review, "
+        "not autonomous prescriptions."
+    )
+
+    phenotype = st.session_state.get("phenotype", "Indeterminate / unknown")
+    menopause = st.session_state.get("menopause", "Unknown")
+    indication = st.session_state.get("indication", "Other / unknown")
+    er_status = st.session_state.get("er_status", "Unknown")
+    current_dose = int(st.session_state.get("dose", 0))
+    adherence = st.session_state.get("adherence", "Unknown")
+    symptoms = st.session_state.get("symptoms", [])
+
+    # These medicines must be reviewed by the treating clinician/pharmacist.
+    inhibitor_meds = [
+        "Fluoxetine", "Paroxetine", "Bupropion", "Quinidine",
+        "Duloxetine", "Mirabegron"
+    ]
+
+    # If the user has visited the interaction page in this session,
+    # its selection can be used here after adding the widget key shown below.
+    selected_meds = st.session_state.get("selected_meds", [])
+    relevant_meds = [m for m in selected_meds if m in inhibitor_meds]
+
+    recommendations = []
+    modifications = []
+    missing_info = []
+    evidence = []
+
+    # 1. Check whether endocrine therapy suitability can be assessed.
+    if er_status == "Negative":
+        recommendations.append(
+            "The entered ER-negative status does not establish an indication "
+            "for endocrine treatment. Verify pathology and treatment plan."
+        )
+        missing_info.append("Confirm ER/pathology report and oncology treatment indication.")
+
+    elif er_status == "Unknown":
+        recommendations.append(
+            "Do not select an endocrine regimen until hormone-receptor status is verified."
+        )
+        missing_info.append("ER status / pathology confirmation")
+
+    elif indication == "Metastatic breast cancer":
+        recommendations.append(
+            "Review the complete metastatic treatment history, disease status, "
+            "prior endocrine/CDK4/6-targeted therapy where relevant, and treatment goals "
+            "before choosing an endocrine regimen."
+        )
+        missing_info.append(
+            "Prior systemic therapies, disease status, contraindications and current oncology plan"
+        )
+
+    elif indication in ["Adjuvant breast cancer", "DCIS", "Risk reduction"]:
+        if phenotype in ["Normal metabolizer", "Ultrarapid metabolizer"]:
+            recommendations.append(
+                "CPIC CYP2D6 guidance: standard-of-care tamoxifen dosing, commonly "
+                "20 mg/day, is supported for this phenotype. This does not establish "
+                "that tamoxifen is the best overall endocrine regimen for this patient."
+            )
+            evidence.append("CPIC CYP2D6–tamoxifen guideline, 2018")
+
+        elif phenotype == "Intermediate metabolizer":
+            recommendations.append(
+                "Discuss the overall endocrine-treatment options with oncology. "
+                "For eligible patients, an aromatase inhibitor may be considered; "
+                "if premenopausal, ovarian function suppression may be needed."
+            )
+            modifications.append(
+                "Review CYP2D6 allele/activity score and all CYP2D6-inhibiting medicines."
+            )
+            evidence.append("CPIC CYP2D6–tamoxifen guideline, 2018")
+
+        elif phenotype == "Poor metabolizer":
+            recommendations.append(
+                "CPIC recommends discussing alternative endocrine therapy: an aromatase "
+                "inhibitor for postmenopausal patients, or an aromatase inhibitor with "
+                "ovarian function suppression for premenopausal patients, where clinically appropriate."
+            )
+            modifications.append(
+                "If an aromatase inhibitor is contraindicated, the oncology team may consider "
+                "tamoxifen 40 mg/day in selected circumstances. This is not an automatic dose change."
+            )
+            evidence.append("CPIC CYP2D6–tamoxifen guideline, 2018")
+
+        else:
+            recommendations.append(
+                "CYP2D6 phenotype is unknown. Do not generate a genotype-based treatment preference "
+                "until the laboratory result is verified."
+            )
+            missing_info.append("Validated CYP2D6 genotype and phenotype report")
+
+    # 2. Menopause-related considerations.
+    if menopause == "Unknown":
+        missing_info.append("Menopausal status")
+    elif menopause == "Premenopausal" and phenotype in [
+        "Poor metabolizer", "Intermediate metabolizer"
+    ]:
+        modifications.append(
+            "If considering an aromatase inhibitor, assess whether ovarian function suppression "
+            "is appropriate; an aromatase inhibitor alone is not suitable for every premenopausal patient."
+        )
+
+    # 3. Interaction and adherence flags.
+    if relevant_meds:
+        modifications.append(
+            "Potential CYP2D6 interaction flagged for: "
+            + ", ".join(relevant_meds)
+            + ". Ask the prescriber/pharmacist to assess alternatives. Do not stop these medicines abruptly."
+        )
+
+    if adherence in ["Variable", "Poor"]:
+        modifications.append(
+            "Review adherence, missed doses, tolerability and barriers before interpreting treatment response."
+        )
+
+    # 4. Safety flags — prompt assessment, not a toxicity prediction.
+    urgent_symptoms = [
+        s for s in symptoms
+        if s in ["Chest pain", "Shortness of breath", "Leg swelling or pain"]
+    ]
+    if urgent_symptoms:
+        modifications.append(
+            "URGENT symptom flag: " + ", ".join(urgent_symptoms)
+            + ". Prompt urgent clinical assessment is needed."
+        )
+
+    if current_dose == 0:
+        modifications.append(
+            "No current daily dose recorded. Confirm whether treatment has started and verify the prescription."
+        )
+    elif current_dose not in [10, 20, 30, 40]:
+        modifications.append(
+            "Verify the recorded dose against the original prescription."
+        )
+
+    # 5. Display structured output.
+    st.markdown("### Preferred clinical pathway to discuss")
+    for item in recommendations:
+        st.info(item)
+
+    st.markdown("### Treatment modification / review flags")
+    if modifications:
+        for item in modifications:
+            st.warning(item)
+    else:
+        st.success(
+            "No modification flag was triggered by the currently entered fields. "
+            "This does not prove that the regimen is optimal or safe."
+        )
+
+    st.markdown("### Missing information")
+    if missing_info:
+        for item in sorted(set(missing_info)):
+            st.write("- " + item)
+    else:
+        st.write(
+            "No additional missing item was detected by these limited rules. "
+            "The complete oncology assessment is still required."
+        )
+
+    st.markdown("### Evidence basis")
+    if evidence:
+        st.write("Guideline used: " + "; ".join(sorted(set(evidence))))
+        st.markdown(
+            "[Open CPIC tamoxifen guideline](https://pmc.ncbi.nlm.nih.gov/articles/5931215/)"
+        )
+    else:
+        st.write(
+            "No genotype-specific recommendation was selected. Verify the indication "
+            "and consult current oncology guidance."
+        )
+
+    st.caption(
+        "This engine does not rank all cancer regimens, estimate recurrence benefit, "
+        "or validate an individualized dose. ER status, stage, recurrence risk, prior treatment, "
+        "contraindications, patient preferences and current local guidance can change the decision."
+    )
 
     report_text = f"""
 # OncoPGx-CDDS — Clinician Review Report
