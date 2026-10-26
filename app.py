@@ -3,10 +3,9 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from datetime import date
-import json
 
 # Page Config
-st.set_page_config(page_title="OncoPGx | Clinically-Grounded Decision Support", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="OncoPGx | Tamoxifen Safe-Use Explorer", page_icon="🧬", layout="wide")
 
 # Theme styling matching clinical dark-mode dashboard
 st.markdown("""
@@ -71,14 +70,12 @@ co_medications = st.sidebar.multiselect("Current Co-medications Screen", list(IN
 
 # 1. Kidney Metrics: Cockcroft-Gault CrCl
 def calculate_cockcroft_gault(age, weight, scr, sex):
-    # Assumption: Actual Body Weight utilized. Direct calculation unadjusted for ideal weight unless specified.
     constant = 85 if sex == "Female" else 72
     crcl = ((140 - age) * weight) / (constant * scr)
     return round(crcl, 2)
 
-# 2. Kidney Metrics: CKD-EPI eGFR (2021 Refined Equation without race parameter)
+# 2. Kidney Metrics: CKD-EPI eGFR (2021 Equation)
 def calculate_ckd_epi(age, scr, sex):
-    # Standard 2021 CKD-EPI equations mapping
     if sex == "Female":
         kappa = 0.7
         alpha = -0.241
@@ -97,7 +94,7 @@ def calculate_ckd_epi(age, scr, sex):
 crcl_val = calculate_cockcroft_gault(age, weight, serum_creatinine, gender)
 egfr_val = calculate_ckd_epi(age, serum_creatinine, gender)
 
-# 3. Liver Function Test Mock Profile for baseline checking
+# 3. Liver Function Test Profile
 st.sidebar.header("🧪 Liver Function Panel")
 ast_val = st.sidebar.number_input("AST (U/L)", value=25)
 alt_val = st.sidebar.number_input("ALT (U/L)", value=30)
@@ -116,15 +113,13 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     st.subheader("📋 Unified Patient Status Panel & Renal Clearance Contrast Matrix")
     
-    # Summary Metrics Row
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Patient ID & Gender", f"{patient_id} ({gender})")
-    m2.metric("Tumor Subtype Matrix", f"ER+/PR+/HER2-" if er_status=="Positive" and her2_status=="Negative" else f"ER:{er_status}/HER2:{her2_status}")
+    m2.metric("Tumor Subtype Matrix", "ER+/PR+/HER2-" if er_status=="Positive" and her2_status=="Negative" else f"ER:{er_status}/HER2:{her2_status}")
     m3.metric("Cockcroft-Gault CrCl", f"{crcl_val} mL/min")
     m4.metric("CKD-EPI eGFR", f"{egfr_val} mL/min/1.73m²")
 
     st.markdown("### 🧪 Renal Function Comparison Matrix")
-    # Explanatory data presentation for safety compliance
     renal_data = {
         "Metric & Methodology": ["Cockcroft-Gault CrCl", "CKD-EPI eGFR (2021)"],
         "Calculated Value": [f"{crcl_val} mL/min", f"{egfr_val} mL/min/1.73m²"],
@@ -143,7 +138,6 @@ with tab1:
 with tab2:
     st.subheader("🛠️ Evidence-Based Treatment Option Matrix (Ranked by Guideline Alignment)")
     
-    # Drug Interaction Screening
     st.markdown("### ⚡ Real-Time Drug Interaction Screening Ledger")
     highest_severity = "NORMAL"
     for med in co_medications:
@@ -158,11 +152,10 @@ with tab2:
     if "None" in co_medications or len(co_medications) == 0:
         st.success("🟢 No heavy CYP2D6 processing inhibitors or interaction flags selected in baseline profile setup.")
 
-    # Treatment Matrix Engine Logic
     st.markdown("### 📋 Multi-Factor Treatment Options Suitability Matrix")
-    st.info("The ranking below represents structural mapping to NCCN/CPIC options framework based on your profile selection. Final strategy requires comprehensive bedside verification.")
+    st.info("The ranking below represents structural mapping to NCCN/CPIC options framework based on your profile selection.")
 
     options = []
-    # Logic matrix dependent on staging, hormone, and menopausal profiles
     if er_status == "Positive":
         if menopause_status == "Post-menopausal":
+            options.append({"Drug Regimen": "Aromatase Inhibitors (Anastrozole/Letrozole)", "Rank Score": "1 [Preferred choice post-menopause]", "Guideline Justification": "First-line endocrine option for postmenopausal individuals under standard ASCO/NCCN rules. Bypasses CYP2D6 constraints.", "Contraindications to Monitor": "Severe Osteoporosis, high baseline bone fracture hazards."})
