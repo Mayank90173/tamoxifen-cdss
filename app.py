@@ -658,7 +658,8 @@ elif page == "Mechanism Explorer":
 
 elif page == "CYP2D6 Pharmacogenomics":
     st.subheader("CYP2D6 phenotype explorer")
-        st.markdown("### CYP2D6 genotype examples")
+    st.markdown("### CYP2D6 genotype examples")
+
     GENOTYPE_EXAMPLES = {
         "*1/*1": {
             "activity_score": "2.0",
