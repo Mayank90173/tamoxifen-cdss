@@ -658,6 +658,59 @@ elif page == "Mechanism Explorer":
 
 elif page == "CYP2D6 Pharmacogenomics":
     st.subheader("CYP2D6 phenotype explorer")
+        st.markdown("### CYP2D6 genotype examples")
+
+    GENOTYPE_EXAMPLES = {
+        "*1/*1": {
+            "activity_score": "2.0",
+            "phenotype": "Normal metabolizer",
+            "interpretation": (
+                "Two normal-function alleles in this illustrative example."
+            ),
+        },
+        "*1/*10": {
+            "activity_score": "1.25",
+            "phenotype": "Normal metabolizer",
+            "interpretation": (
+                "One normal-function allele and one decreased-function "
+                "allele. Confirm the laboratory's allele assignment."
+            ),
+        },
+        "*4/*10": {
+            "activity_score": "0.25",
+            "phenotype": "Intermediate metabolizer",
+            "interpretation": (
+                "One no-function allele and one decreased-function allele."
+            ),
+        },
+    }
+
+    selected_genotype = st.selectbox(
+        "Select an illustrative CYP2D6 genotype",
+        list(GENOTYPE_EXAMPLES.keys()),
+        key="cyp2d6_genotype_examples",
+    )
+
+    genotype_info = GENOTYPE_EXAMPLES[selected_genotype]
+
+    g1, g2 = st.columns(2)
+    g1.metric(
+        "Illustrative activity score",
+        genotype_info["activity_score"],
+    )
+    g2.metric(
+        "Illustrative phenotype",
+        genotype_info["phenotype"],
+    )
+
+    st.info(genotype_info["interpretation"])
+
+    st.caption(
+        "Educational examples only. Confirm allele function, copy-number "
+        "variation, activity score and phenotype using the actual "
+        "laboratory report and applicable clinical guidance. "
+        "Do not infer a person's genotype from ancestry."
+    )
 
     phenotype = st.selectbox(
         "Select reported phenotype",
