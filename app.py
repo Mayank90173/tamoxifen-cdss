@@ -1,5 +1,4 @@
-       row = {"recorded_at": datetime.now().isoformat(timespec="seconds"), "scenario_id": scenario_id.strip() or "DEMO-001",                   "sample_date": sample_date.isoformat(), "endoxifen_value": level, "unit": unit,
-                   "tamoxifen_dose_mg_day": dose, "adherence": adher, "notes": notes}
+row = {"recorded_at": datetime.now().isoformat(timespec="seconds"), "scenario_id": scenario_id.strip() or "DEMO-001",                   "tamoxifen_dose_mg_day": dose, "adherence": adher, "notes": notes}
             history = append_local_row(TDM_DB, cols, row)
             st.success("Saved to local CSV. On hosted platforms, local storage may be reset when the app restarts.")
     history = read_local_csv(TDM_DB, cols)
