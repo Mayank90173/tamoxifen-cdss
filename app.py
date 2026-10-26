@@ -1,161 +1,806 @@
+
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
-from datetime import date
 
-# Page Config
-st.set_page_config(page_title="OncoPGx | Tamoxifen Safe-Use Explorer", page_icon="🧬", layout="wide")
+st.set_page_config(
+    page_title="OncoPGx | Precision Oncology",
+    page_icon="🧬",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-# Theme styling matching clinical dark-mode dashboard
+# -------------------- THEME --------------------
+
 st.markdown("""
 <style>
-.stApp{background:#07111f;color:#eef5ff}
-[data-testid="stSidebar"]{background:#0b1b2c}
-[data-testid="stMetric"]{background:#102238;border:1px solid #29435d;padding:12px;border-radius:12px}
-.report-box{background-color:#112240; border-radius:8px; padding:20px; border:1px dashed #64ffda; margin-top:20px;}
-</style>""", unsafe_allow_html=True)
+.stApp {
+    background:
+      radial-gradient(ellipse at 80% 0%, #102b59 0%, transparent 38%),
+      radial-gradient(ellipse at 0% 80%, #101b45 0%, transparent 35%),
+      #06101f;
+    color: #edf5ff;
+}
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg,#09172d,#06101f);
+    border-right: 1px solid #1b4266;
+}
+h1,h2,h3 { color: #e5f5ff !important; }
+p, label, li { color: #c6d8f2; }
+[data-testid="stMetric"] {
+    background: linear-gradient(135deg,#102747,#0b1830);
+    border: 1px solid #23527b;
+    padding: 15px;
+    border-radius: 13px;
+}
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    border-color: #20496c;
+    border-radius: 14px;
+}
+.stButton > button {
+    background: linear-gradient(90deg,#087ee1,#7857ff);
+    color: white;
+    border: 0;
+    border-radius: 9px;
+}
+div[data-baseweb="select"] > div {
+    background-color: #0b1c35;
+}
+hr { border-color: #214264; }
+.hero {
+    padding: 22px;
+    border-radius: 18px;
+    border: 1px solid #22618b;
+    background: linear-gradient(115deg,#0b2344,#102253,#161640);
+}
+.small { color: #83b8e8; font-size: 13px; }
+.warning {
+    padding: 12px;
+    border: 1px solid #d84b75;
+    border-radius: 10px;
+    background: #29152a;
+}
+</style>
+""", unsafe_allow_html=True)
 
-st.title("🧬 OncoPGx: Advanced Breast Cancer Pharmacology & Pharmacogenomics Dashboard")
-st.caption("Evidence-Based Decision Support System • Integrated PK/PD Model, Pharmacovigilance, and Renal Clearance Matrix")
+st.markdown("""
+<div class="hero">
+  <div style="font-size:14px;color:#55dfff;letter-spacing:3px">
+    PRECISION ONCOLOGY • PHARMACOGENOMICS
+  </div>
+  <h1 style="font-size:38px;margin:8px 0">
+    🧬 OncoPGx
+  </h1>
+  <h3 style="font-weight:400">
+    Tamoxifen Safe-Use Explorer
+  </h3>
+  <p>
+    Mechanistic pharmacology · PGx · Drug interactions ·
+    Safety screening · Clinical evidence
+  </p>
+</div>
+""", unsafe_allow_html=True)
 
-# Core Clinical Warnings & Disclaimers
-st.error("⚠️ **CLINICAL EVIDENCE DISCLAIMER:** This system is an educational and research prototype. It does not automatically prescribe medication or select a globally 'best' drug. Dosage adjustments and treatment decisions must always be guided by complete clinical evidence, official oncology guidelines (NCCN/ASCO/CPIC), and direct oversight of a qualified oncologist.")
+st.error(
+    "RESEARCH / EDUCATION PROTOTYPE ONLY. "
+    "Not validated for clinical use. No individual toxicity probability "
+    "is calculated. Never start, stop, or change a medicine based on this app."
+)
 
-# ----------------- SESSION STATE FOR PERSISTENT PHARMACOVIGILANCE -----------------
-if 'pv_database' not in st.session_state:
-    st.session_state.pv_database = pd.DataFrame(columns=[
-        "Date", "Patient ID", "Cancer Type", "Stage", "Drug", "Dose (mg)", "Adverse Reaction", "Seriousness"
-    ])
+# -------------------- KNOWLEDGE BASE --------------------
 
-# ----------------- DATA DICTIONARIES & SCHEMAS -----------------
+PHENOTYPES = {
+    "Not tested / unknown": {
+        "activity": "Unknown",
+        "summary": "Do not infer genotype from symptoms or ancestry.",
+        "approach": "Use the existing clinical plan; testing decisions follow local guidance.",
+    },
+    "Normal metabolizer": {
+        "activity": "Expected normal activity",
+        "summary": "Expected CYP2D6 activity is within the normal range.",
+        "approach": "Standard treatment may be appropriate if clinically indicated.",
+    },
+    "Intermediate metabolizer": {
+        "activity": "Reduced activity",
+        "summary": "CYP2D6 activity is expected to be reduced.",
+        "approach": "Review the actual genotype/activity score and clinical context.",
+    },
+    "Poor metabolizer": {
+        "activity": "Little or no activity",
+        "summary": "CYP2D6-mediated endoxifen formation may be reduced.",
+        "approach": "Discuss endocrine alternatives with the oncology team.",
+    },
+    "Ultrarapid metabolizer": {
+        "activity": "Higher-than-normal activity",
+        "summary": "Predicted activity is higher than the normal range.",
+        "approach": "Do not increase or reduce treatment solely from this label.",
+    },
+}
+
 INTERACTIONS = {
-    "None": ("No known interactions selected.", "Low risk", "NORMAL"),
-    "Paroxetine": ("Strong CYP2D6 inhibitor. Can markedly reduce tamoxifen activation to active Endoxifen.", "High Priority Review", "CRITICAL"),
-    "Fluoxetine": ("Strong CYP2D6 inhibitor. Long half-life interaction risks that can persist.", "High Priority Review", "CRITICAL"),
-    "Bupropion": ("Strong CYP2D6 inhibitor. Decreases formation of active endoxifen.", "High Priority Review", "CRITICAL"),
-    "Duloxetine": ("Moderate CYP2D6 inhibitor. May decrease active metabolite plasma concentrations.", "Review Context", "WARNING"),
-    "Sertraline": ("Mild-to-moderate CYP2D6 inhibitor. Sub-type dependent interaction risk.", "Review Context", "WARNING"),
-    "Rifampicin": ("Strong CYP3A4 inducer. Significantly decreases overall tamoxifen exposure.", "High Priority Review", "CRITICAL"),
+    "Paroxetine": (
+        "Strong CYP2D6 inhibitor",
+        "May reduce endoxifen formation",
+        "High-priority medication review",
+    ),
+    "Fluoxetine": (
+        "Strong CYP2D6 inhibitor",
+        "May reduce endoxifen formation; effects can persist",
+        "High-priority medication review",
+    ),
+    "Bupropion": (
+        "Strong CYP2D6 inhibitor",
+        "May reduce CYP2D6 activity",
+        "High-priority medication review",
+    ),
+    "Duloxetine": (
+        "Moderate CYP2D6 inhibitor",
+        "May affect CYP2D6 activity",
+        "Review clinical context",
+    ),
+    "Terbinafine": (
+        "CYP2D6 inhibitor",
+        "May inhibit tamoxifen activation",
+        "Review indication and alternatives",
+    ),
+    "Sertraline": (
+        "CYP2D6 inhibition varies",
+        "Effect depends on context and dose",
+        "Review the complete medication list",
+    ),
+    "Rifampicin / rifampin": (
+        "Strong CYP3A4 inducer",
+        "May reduce tamoxifen exposure",
+        "Prompt prescriber/pharmacist review",
+    ),
+    "Carbamazepine": (
+        "Enzyme inducer",
+        "May alter drug exposure",
+        "Verify with a current interaction resource",
+    ),
+    "Phenytoin": (
+        "Enzyme inducer",
+        "May alter drug exposure",
+        "Verify with a current interaction resource",
+    ),
+    "Warfarin": (
+        "Anticoagulant interaction",
+        "May increase anticoagulant effect and bleeding risk",
+        "Review anticoagulation monitoring",
+    ),
+    "Anastrozole": (
+        "Endocrine regimen overlap",
+        "Concurrent use is not routine in standard adjuvant treatment",
+        "Confirm intended regimen with oncology",
+    ),
+    "Letrozole": (
+        "Endocrine regimen overlap",
+        "Concurrent use requires regimen-specific justification",
+        "Confirm intended regimen with oncology",
+    ),
 }
 
-PGX_SUBTYPES = {
-    "Normal Metabolizer (NM)": {"score": 2.0, "guideline": "Standard clinical dosage recommended (e.g., Tamoxifen 20mg/day). Avoid potent CYP2D6 inhibitors."},
-    "Intermediate Metabolizer (IM)": {"score": 1.0, "guideline": "Consider alternative endocrine therapy or monitor endoxifen concentrations. Strictly avoid CYP2D6 inhibitors."},
-    "Poor Metabolizer (PM)": {"score": 0.0, "guideline": "High risk of therapeutic failure with standard Tamoxifen. Strong recommendation to consider Aromatase Inhibitors if postmenopausal, or alternative management."},
-    "Ultrarapid Metabolizer (UM)": {"score": 3.0, "guideline": "Standard Tamoxifen usage can cause rapid metabolite formation. Monitor closely for toxicities."}
+PATHWAYS = {
+    "CYP2D6 → Endoxifen formation": {
+        "steps": [
+            "Tamoxifen",
+            "N-desmethyl-tamoxifen",
+            "Endoxifen",
+        ],
+        "description": (
+            "CYP2D6 contributes to formation of endoxifen, an active "
+            "tamoxifen metabolite. Genotype and CYP2D6-inhibiting medicines "
+            "can influence endoxifen exposure."
+        ),
+        "takeaway": "Genetic activity and inhibitors can affect metabolism.",
+    },
+    "Estrogen receptor pharmacology": {
+        "steps": [
+            "Tamoxifen",
+            "Active metabolites",
+            "Estrogen receptor",
+            "Tissue-dependent effects",
+        ],
+        "description": (
+            "Tamoxifen is a selective estrogen receptor modulator (SERM). "
+            "Its receptor effects vary by tissue and biological context."
+        ),
+        "takeaway": "Receptor effects depend on tissue and clinical setting.",
+    },
+    "CYP3A4 and drug metabolism": {
+        "steps": [
+            "Tamoxifen",
+            "Metabolic pathways",
+            "Active metabolites",
+        ],
+        "description": (
+            "Several enzymes contribute to tamoxifen metabolism. Strong "
+            "enzyme inducers or inhibitors can change exposure; the effect "
+            "must be checked against current product information."
+        ),
+        "takeaway": "Metabolic pathways are interconnected, not a single-enzyme switch.",
+    },
+    "Drug interaction pathway": {
+        "steps": [
+            "Co-medication",
+            "Enzyme effect",
+            "Altered exposure",
+            "Clinical review",
+        ],
+        "description": (
+            "Co-medications can affect metabolism, bleeding risk, or endocrine "
+            "regimen compatibility. A screening flag is not proof of harm."
+        ),
+        "takeaway": "Review the full medicine list before clinical decisions.",
+    },
+    "Endocrine treatment alternatives": {
+        "steps": [
+            "Clinical context",
+            "Menopausal status",
+            "Endocrine options",
+            "Oncology review",
+        ],
+        "description": (
+            "Depending on the cancer setting and menopausal status, the "
+            "oncology team may consider an aromatase inhibitor, ovarian "
+            "function suppression, or another endocrine strategy."
+        ),
+        "takeaway": "Alternatives depend on indication and patient-specific factors.",
+    },
 }
 
-# ----------------- SIDEBAR: PATIENT DEMOGRAPHICS & CLINICAL ENTRY -----------------
-st.sidebar.header("📋 Patient Demographics & Profile")
-patient_id = st.sidebar.text_input("Patient Reference/ID", "PT-2026-89B")
-age = st.sidebar.number_input("Age (Years)", min_value=18, max_value=100, value=54)
-weight = st.sidebar.number_input("Weight (kg)", min_value=30.0, max_value=200.0, value=70.0)
-serum_creatinine = st.sidebar.number_input("Serum Creatinine (mg/dL)", min_value=0.3, max_value=10.0, value=0.9, step=0.1)
-gender = st.sidebar.selectbox("Biological Sex", ["Female", "Male"])
-menopause_status = st.sidebar.selectbox("Menopausal Status", ["Pre-menopausal", "Post-menopausal", "Perimenopausal"])
+# -------------------- SIDEBAR --------------------
 
-st.sidebar.header("🧬 Tumor Characteristics & Pathology")
-cancer_type = st.sidebar.selectbox("Cancer Classification", ["Invasive Ductal Carcinoma (IDC)", "Invasive Lobular Carcinoma (ILC)", "Ductal Carcinoma In Situ (DCIS)"])
-cancer_stage = st.sidebar.selectbox("Clinical Stage", ["Stage I", "Stage II", "Stage III", "Stage IV"])
-er_status = st.sidebar.selectbox("Estrogen Receptor (ER)", ["Positive", "Negative"])
-pr_status = st.sidebar.selectbox("Progesterone Receptor (PR)", ["Positive", "Negative"])
-her2_status = st.sidebar.selectbox("HER2 Status", ["Negative", "Positive (Overexpressed)"])
+st.sidebar.markdown("## 🧬 OncoPGx")
+st.sidebar.caption("Precision oncology workspace")
 
-st.sidebar.header("💊 Pharmacogenomics & Meds")
-pgx_phenotype = st.sidebar.selectbox("CYP2D6 Genotype Phenotype", list(PGX_SUBTYPES.keys()))
-co_medications = st.sidebar.multiselect("Current Co-medications Screen", list(INTERACTIONS.keys()), default=["None"])
+page = st.sidebar.radio(
+    "NAVIGATION",
+    [
+        "Overview",
+        "Mechanism Explorer",
+        "CYP2D6 Pharmacogenomics",
+        "Drug Interaction Checker",
+        "Dosage Decision Support",
+        "Toxicity Screening",
+        "Pharmacovigilance",
+        "Guidelines & Evidence",
+    ],
+)
 
-# ----------------- CLINICAL CORE CALCULATIONS -----------------
+st.sidebar.markdown("---")
+st.sidebar.markdown(
+    "**Research prototype**\n\n"
+    "No validated clinical prediction model is embedded. "
+    "Use fictional scenarios only; do not enter identifiable patient data."
+)
 
-# 1. Kidney Metrics: Cockcroft-Gault CrCl
-def calculate_cockcroft_gault(age, weight, scr, sex):
-    constant = 85 if sex == "Female" else 72
-    crcl = ((140 - age) * weight) / (constant * scr)
-    return round(crcl, 2)
+# -------------------- OVERVIEW --------------------
 
-# 2. Kidney Metrics: CKD-EPI eGFR (2021 Equation)
-def calculate_ckd_epi(age, scr, sex):
-    if sex == "Female":
-        kappa = 0.7
-        alpha = -0.241
-        gender_mod = 1.012
+if page == "Overview":
+    st.subheader("Precision oncology workspace")
+    st.write(
+        "Explore tamoxifen pharmacology, CYP2D6-related variability, "
+        "drug interactions, and treatment safety considerations."
+    )
+
+    a, b, c, d = st.columns(4)
+    a.metric("Mechanistic pathways", len(PATHWAYS))
+    b.metric("Interaction entries", len(INTERACTIONS))
+    c.metric("PGx phenotypes", len(PHENOTYPES))
+    d.metric("Prediction model", "Not validated")
+
+    st.markdown("### Research modules")
+    cards = [
+        ("🧬", "Mechanism Explorer", "Explore metabolic and receptor pathways."),
+        ("🧪", "Pharmacogenomics", "Interpret a reported CYP2D6 phenotype."),
+        ("💊", "Interaction Checker", "Screen selected co-medications."),
+        ("🛡️", "Toxicity Screening", "Review safety factors without inventing probabilities."),
+    ]
+    cols = st.columns(2)
+    for i, (emoji, title, desc) in enumerate(cards):
+        with cols[i % 2]:
+            with st.container(border=True):
+                st.markdown(f"### {emoji} {title}")
+                st.write(desc)
+
+    st.info(
+        "Suggested demonstration: choose a pathway, change the CYP2D6 "
+        "scenario, select an interacting medicine, and inspect the "
+        "transparent safety flags."
+    )
+
+# -------------------- MECHANISM EXPLORER --------------------
+
+elif page == "Mechanism Explorer":
+    st.subheader("Interactive mechanism explorer")
+    choice = st.selectbox("Select a pathway", list(PATHWAYS.keys()))
+    pathway = PATHWAYS[choice]
+
+    st.write(pathway["description"])
+
+    fig = go.Figure()
+    n = len(pathway["steps"])
+    xs = [i / max(n - 1, 1) for i in range(n)]
+    colors = ["#126de5", "#00bfa6", "#7657ff", "#e34e9a"]
+
+    for i, (x, label) in enumerate(zip(xs, pathway["steps"])):
+        fig.add_trace(go.Scatter(
+            x=[x], y=[0],
+            mode="markers+text",
+            text=[label],
+            textposition="bottom center",
+            marker=dict(
+                size=38,
+                color=colors[i % len(colors)],
+                line=dict(color="#bcecff", width=1.5),
+            ),
+            hovertemplate="%{text}<extra></extra>",
+            showlegend=False,
+        ))
+        if i < n - 1:
+            fig.add_annotation(
+                x=xs[i + 1] - 0.08,
+                y=0,
+                ax=xs[i] + 0.08,
+                ay=0,
+                xref="x",
+                yref="y",
+                axref="x",
+                ayref="y",
+                text="",
+                showarrow=True,
+                arrowhead=3,
+                arrowwidth=2,
+                arrowcolor="#38d9ff",
+            )
+
+    fig.update_layout(
+        template="plotly_dark",
+        height=310,
+        margin=dict(l=30, r=30, t=35, b=90),
+        xaxis=dict(visible=False, range=[-0.12, 1.12]),
+        yaxis=dict(visible=False, range=[-0.6, 0.6]),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    st.success(pathway["takeaway"])
+
+    with st.expander("Scientific interpretation and limitations"):
+        st.write(
+            "This is a conceptual pathway illustration. It does not "
+            "calculate enzyme activity, measured endoxifen concentration, "
+            "treatment efficacy, or individual toxicity probability."
+        )
+
+# -------------------- PHARMACOGENOMICS --------------------
+
+elif page == "CYP2D6 Pharmacogenomics":
+    st.subheader("CYP2D6 phenotype explorer")
+
+    phenotype = st.selectbox(
+        "Select reported phenotype",
+        list(PHENOTYPES.keys()),
+    )
+    data = PHENOTYPES[phenotype]
+
+    a, b = st.columns(2)
+    a.metric("Expected activity", data["activity"])
+    b.metric("Selected scenario", phenotype)
+
+    st.markdown("### Interpretation")
+    st.write(data["summary"])
+    st.info(data["approach"])
+
+    st.markdown("### Phenotype comparison")
+    table = pd.DataFrame([
+        {
+            "Phenotype": name,
+            "Expected activity": values["activity"],
+            "Interpretation": values["summary"],
+        }
+        for name, values in PHENOTYPES.items()
+    ])
+    st.dataframe(table, use_container_width=True, hide_index=True)
+
+    st.caption(
+        "CPIC guidance and oncology guidelines have different scopes. "
+        "CYP2D6 testing is not universally recommended to choose adjuvant "
+        "endocrine therapy. Confirm current local guidance and the actual "
+        "laboratory report before clinical interpretation."
+    )
+
+# -------------------- INTERACTION CHECKER --------------------
+
+elif page == "Drug Interaction Checker":
+    st.subheader("Drug–drug interaction screening")
+
+    medicines = st.multiselect(
+        "Select co-medications in a fictional scenario",
+        list(INTERACTIONS.keys()),
+    )
+    search = st.text_input("Filter displayed medicines", "").strip().lower()
+
+    if medicines:
+        rows = []
+        for med in medicines:
+            group, effect, action = INTERACTIONS[med]
+            rows.append({
+                "Medicine": med,
+                "Interaction group": group,
+                "Potential concern": effect,
+                "Review prompt": action,
+            })
+
+        df = pd.DataFrame(rows)
+        if search:
+            df = df[
+                df.astype(str).apply(
+                    lambda col: col.str.lower().str.contains(search)
+                ).any(axis=1)
+            ]
+
+        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.metric("Selected review flags", len(medicines))
+        st.warning(
+            "These are screening prompts, not confirmed patient-specific "
+            "interactions. Verify against current product information and "
+            "a clinical pharmacist/prescriber."
+        )
     else:
-        kappa = 0.9
-        alpha = -0.302
-        gender_mod = 1.0
+        st.info("Select one or more medicines to see interaction details.")
 
-    min_term = min(scr / kappa, 1) ** alpha
-    max_term = max(scr / kappa, 1) ** -1.200
-    age_term = 0.9938 ** age
-    egfr = 142 * min_term * max_term * age_term * gender_mod
-    return round(egfr, 2)
+    st.caption(
+        "The list is not exhaustive. A medicine absent from this list "
+        "cannot be assumed safe or interaction-free."
+    )
 
-crcl_val = calculate_cockcroft_gault(age, weight, serum_creatinine, gender)
-egfr_val = calculate_ckd_epi(age, serum_creatinine, gender)
+# -------------------- DOSAGE DECISION SUPPORT --------------------
 
-# 3. Liver Function Test Profile
-st.sidebar.header("🧪 Liver Function Panel")
-ast_val = st.sidebar.number_input("AST (U/L)", value=25)
-alt_val = st.sidebar.number_input("ALT (U/L)", value=30)
-bilirubin_val = st.sidebar.number_input("Total Bilirubin (mg/dL)", value=0.8)
+elif page == "Dosage Decision Support":
+    st.subheader("Dose reference and clinical decision support")
 
-# ----------------- MAIN DASHBOARD TABS -----------------
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📊 Core Diagnostics & Renal Matrix",
-    "💊 Guideline Engine & Treatment Matrix",
-    "📈 PK Core & Endoxifen Simulation",
-    "🛡️ Live Pharmacovigilance Hub",
-    "📋 Case Report Generator"
-])
+    st.info(
+        "Reference information only. This module does not prescribe, "
+        "calculate a personalised dose, or recommend unsupervised dose changes."
+    )
 
-# ----- TAB 1: CORE DIAGNOSTICS & RENAL MATRIX -----
-with tab1:
-    st.subheader("📋 Unified Patient Status Panel & Renal Clearance Contrast Matrix")
-    
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Patient ID & Gender", f"{patient_id} ({gender})")
-    m2.metric("Tumor Subtype Matrix", "ER+/PR+/HER2-" if er_status=="Positive" and her2_status=="Negative" else f"ER:{er_status}/HER2:{her2_status}")
-    m3.metric("Cockcroft-Gault CrCl", f"{crcl_val} mL/min")
-    m4.metric("CKD-EPI eGFR", f"{egfr_val} mL/min/1.73m²")
+    setting = st.selectbox(
+        "Clinical context",
+        [
+            "Adjuvant treatment",
+            "Metastatic disease",
+            "Risk reduction / DCIS",
+            "Other / not specified",
+        ],
+    )
+    menopause = st.selectbox(
+        "Menopausal status",
+        ["Unknown", "Premenopausal", "Postmenopausal", "Uncertain"],
+    )
+    phenotype = st.selectbox(
+        "CYP2D6 phenotype",
+        list(PHENOTYPES.keys()),
+        key="dose_phenotype",
+    )
+    ai_status = st.selectbox(
+        "Aromatase inhibitor suitability",
+        [
+            "Not assessed",
+            "May be considered by oncology team",
+            "Contraindicated or not tolerated (clinician-confirmed)",
+        ],
+    )
+    inhibitor = st.selectbox(
+        "Strong CYP2D6 inhibitor present?",
+        ["Unknown", "No", "Yes"],
+    )
 
-    st.markdown("### 🧪 Renal Function Comparison Matrix")
-    renal_data = {
-        "Metric & Methodology": ["Cockcroft-Gault CrCl", "CKD-EPI eGFR (2021)"],
-        "Calculated Value": [f"{crcl_val} mL/min", f"{egfr_val} mL/min/1.73m²"],
-        "Primary Clinical Application": ["Used primarily for baseline renal drug dosage adjustments (FDA Labeling).", "Used for chronic kidney disease staging and overall classification."],
-        "Key Biological Assumptions": ["Highly dependent on actual total body weight; can overestimate clearance in obese profiles.", "Normalized to standardized body surface area (1.73m²); independent of patient weight tracking."]
+    st.markdown("### Standard reference")
+    st.metric("Common adult tamoxifen reference", "20 mg/day")
+    st.caption(
+        "The appropriate regimen depends on indication, product labeling, "
+        "treatment plan, and the prescribing clinician. This reference "
+        "does not establish that 20 mg/day is appropriate for every setting."
+    )
+
+    st.markdown("### Factors for clinician review")
+    review_items = []
+    if phenotype == "Poor metabolizer":
+        review_items.append(
+            "Review endocrine alternatives; CPIC discusses alternatives "
+            "in appropriate clinical contexts."
+        )
+    elif phenotype == "Intermediate metabolizer":
+        review_items.append(
+            "Confirm the genotype/activity score and review current guidance."
+        )
+    elif phenotype == "Not tested / unknown":
+        review_items.append(
+            "Phenotype is unknown; do not infer it from symptoms or ancestry."
+        )
+
+    if inhibitor == "Yes":
+        review_items.append(
+            "Review the interacting medicine and possible alternatives "
+            "without stopping it independently."
+        )
+    elif inhibitor == "Unknown":
+        review_items.append(
+            "Medication interaction status is unknown."
+        )
+
+    if menopause == "Unknown" or menopause == "Uncertain":
+        review_items.append(
+            "Clarify menopausal status before evaluating endocrine options."
+        )
+
+    if ai_status == "Contraindicated or not tolerated (clinician-confirmed)":
+        review_items.append(
+            "Discuss suitable options with the oncology team; do not "
+            "automatically escalate tamoxifen dosage."
+        )
+
+    if setting == "Other / not specified":
+        review_items.append(
+            "Confirm the exact treatment indication and intended regimen."
+        )
+
+    if review_items:
+        for item in review_items:
+            st.warning(item)
+    else:
+        st.success(
+            "No additional prompts triggered by these selections. "
+            "This is not confirmation that the regimen is suitable."
+        )
+
+    st.markdown("### Alternative endocrine approaches to discuss")
+    st.write(
+        "- Aromatase inhibitor-based treatment when appropriate.\n"
+        "- Aromatase inhibitor plus ovarian function suppression in "
+        "selected premenopausal contexts.\n"
+        "- Other clinician-directed endocrine options when alternatives "
+        "are unsuitable."
+    )
+    st.caption(
+        "The options are context-dependent and are not individual treatment "
+        "recommendations. Verify current CPIC, oncology guidelines, and "
+        "product labeling."
+    )
+
+# -------------------- TOXICITY SCREENING --------------------
+
+elif page == "Toxicity Screening":
+    st.subheader("Treatment safety and toxicity-factor explorer")
+
+    st.warning(
+        "This is a transparent checklist, NOT an AI model. It does not "
+        "estimate an individual's probability of toxicity or replace "
+        "clinical assessment."
+    )
+
+    st.markdown("### Scenario factors")
+    age = st.number_input("Age (years)", min_value=18, max_value=110, value=52)
+    bmi = st.number_input(
+        "BMI (kg/m²; optional context)",
+        min_value=10.0,
+        max_value=80.0,
+        value=25.0,
+        step=0.5,
+    )
+    liver_status = st.selectbox(
+        "Liver status",
+        ["Unknown", "No known impairment", "Impairment reported"],
+    )
+    clot_history = st.selectbox(
+        "History of venous thromboembolism",
+        ["Unknown", "No known history", "History reported"],
+    )
+    uterine_status = st.selectbox(
+        "Uterine / endometrial context",
+        ["Unknown", "Not applicable / absent uterus", "Present / needs review"],
+    )
+    symptoms = st.multiselect(
+        "Symptoms or concerns reported in scenario",
+        [
+            "Hot flashes",
+            "Abnormal vaginal bleeding",
+            "Leg swelling or pain",
+            "Chest pain or sudden breathlessness",
+            "Jaundice or dark urine",
+        ],
+    )
+
+    st.markdown("### Review output")
+    flags = []
+
+    if liver_status == "Impairment reported":
+        flags.append(
+            "Liver impairment reported: clinician review may be needed."
+        )
+    if clot_history == "History reported":
+        flags.append(
+            "VTE history reported: assess thromboembolic risk with the "
+            "treating team."
+        )
+    if uterine_status == "Present / needs review":
+        flags.append(
+            "Endometrial context requires appropriate clinical monitoring "
+            "and assessment of symptoms."
+        )
+    if age >= 65:
+        flags.append(
+            "Age 65 or older: interpret overall risks in the full clinical context."
+        )
+    if bmi >= 30:
+        flags.append(
+            "BMI at least 30: consider it within the broader clinical risk profile."
+        )
+
+    symptom_actions = {
+        "Hot flashes": "Hot flashes: discuss symptom management if troublesome.",
+        "Abnormal vaginal bleeding": (
+            "Abnormal vaginal bleeding: prompt clinical assessment is needed."
+        ),
+        "Leg swelling or pain": (
+            "New leg swelling or pain: urgent assessment may be needed for VTE."
+        ),
+        "Chest pain or sudden breathlessness": (
+            "Chest pain or sudden breathlessness: seek emergency medical care."
+        ),
+        "Jaundice or dark urine": (
+            "Jaundice or dark urine: urgent clinical assessment is needed."
+        ),
     }
-    st.table(pd.DataFrame(renal_data))
 
-    st.markdown("### 💾 Liver Function Baseline Verification")
-    l1, l2, l3 = st.columns(3)
-    l1.metric("AST Status", f"{ast_val} U/L", delta="Normal" if ast_val < 40 else "Elevated Check Pathology")
-    l2.metric("ALT Status", f"{alt_val} U/L", delta="Normal" if alt_val < 45 else "Elevated Check Pathology")
-    l3.metric("Total Bilirubin", f"{bilirubin_val} mg/dL", delta="Normal" if bilirubin_val <= 1.2 else "Hyperbilirubinemia Warning")
+    for symptom in symptoms:
+        flags.append(symptom_actions[symptom])
 
-# ----- TAB 2: GUIDELINE ENGINE & TREATMENT MATRIX -----
-with tab2:
-    st.subheader("🛠️ Evidence-Based Treatment Option Matrix (Ranked by Guideline Alignment)")
-    
-    st.markdown("### ⚡ Real-Time Drug Interaction Screening Ledger")
-    highest_severity = "NORMAL"
-    for med in co_medications:
-        if med != "None":
-            details = INTERACTIONS[med]
-            if details[2] == "CRITICAL":
-                st.error(f"🔴 **Critical Action Prompt [{med}]:** {details[0]} | *Risk Status:* {details[1]}")
-                highest_severity = "CRITICAL"
-            elif details[2] == "WARNING":
-                st.warning(f"🟡 **Review Advisory [{med}]:** {details[0]} | *Risk Status:* {details[1]}")
-                if highest_severity != "CRITICAL": highest_severity = "WARNING"
-    if "None" in co_medications or len(co_medications) == 0:
-        st.success("🟢 No heavy CYP2D6 processing inhibitors or interaction flags selected in baseline profile setup.")
+    if flags:
+        st.metric("Review prompts", len(flags))
+        for flag in flags:
+            st.warning(flag)
+    else:
+        st.info(
+            "No checklist prompts triggered by these entries. This does not "
+            "mean the patient is at low risk or free from toxicity."
+        )
 
-    st.markdown("### 📋 Multi-Factor Treatment Options Suitability Matrix")
-    st.info("The ranking below represents structural mapping to NCCN/CPIC options framework based on your profile selection.")
+    st.markdown("### Future validated toxicity model")
+    st.write(
+        "A genuine prediction model would require a defined endpoint, "
+        "a suitable patient dataset, prespecified predictors, missing-data "
+        "handling, model training, external validation, calibration, "
+        "and performance reporting."
+    )
+    st.caption(
+        "No percentage, low/medium/high probability, or personalised "
+        "dose recommendation is generated here."
+    )
 
-    options = []
-    if er_status == "Positive":
-        if menopause_status == "Post-menopausal":
-            options.append({"Drug Regimen": "Aromatase Inhibitors (Anastrozole/Letrozole)", "Rank Score": "1 [Preferred choice post-menopause]", "Guideline Justification": "First-line endocrine option for postmenopausal individuals under standard ASCO/NCCN rules. Bypasses CYP2D6 constraints.", "Contraindications to Monitor": "Severe Osteoporosis, high baseline bone fracture hazards."})
+# -------------------- PHARMACOVIGILANCE --------------------
+
+elif page == "Pharmacovigilance":
+    st.subheader("Pharmacovigilance and adverse-event review")
+
+    st.write(
+        "Tamoxifen safety monitoring includes thromboembolic events, "
+        "endometrial abnormalities or cancer, vasomotor symptoms, and "
+        "less common hepatic adverse effects. Risk varies by patient "
+        "and treatment context."
+    )
+
+    pv = pd.DataFrame([
+        {
+            "Safety topic": "Venous thromboembolism",
+            "Example signal": "Leg swelling, pain, sudden breathlessness",
+            "Response": "Urgent assessment when clinically suspected",
+        },
+        {
+            "Safety topic": "Endometrial effects",
+            "Example signal": "Abnormal vaginal bleeding",
+            "Response": "Clinical evaluation; follow appropriate guidance",
+        },
+        {
+            "Safety topic": "Vasomotor effects",
+            "Example signal": "Hot flashes or night sweats",
+            "Response": "Assess severity and discuss symptom management",
+        },
+        {
+            "Safety topic": "Hepatic effects",
+            "Example signal": "Jaundice or dark urine",
+            "Response": "Prompt clinical assessment",
+        },
+    ])
+    st.dataframe(pv, use_container_width=True, hide_index=True)
+
+    st.markdown("### Demonstration report form")
+    with st.form("pv_demo"):
+        event = st.selectbox(
+            "Event category",
+            ["Hot flashes", "VTE concern", "Abnormal bleeding", "Hepatic concern", "Other"],
+        )
+        seriousness = st.selectbox(
+            "Seriousness (demo classification)",
+            ["Not assessed", "Non-serious", "Serious"],
+        )
+        outcome = st.selectbox(
+            "Outcome",
+            ["Unknown", "Recovering", "Recovered", "Ongoing", "Fatal"],
+        )
+        submitted = st.form_submit_button("Review demonstration report")
+
+    if submitted:
+        st.write({
+            "Event": event,
+            "Seriousness": seriousness,
+            "Outcome": outcome,
+        })
+        st.info(
+            "Demonstration only: this form does not submit to a regulator, "
+            "create a validated safety report, or establish causality."
+        )
+
+# -------------------- GUIDELINES & EVIDENCE --------------------
+
+elif page == "Guidelines & Evidence":
+    st.subheader("Evidence and guideline workspace")
+
+    st.write(
+        "Use current, authoritative documents to verify every clinical "
+        "statement before presenting or using this prototype."
+    )
+
+    sources = [
+        (
+            "CPIC — CYP2D6 and tamoxifen",
+            "Clinical Pharmacogenetics Implementation Consortium guidance "
+            "on CYP2D6 genotype and tamoxifen therapy.",
+            "https://cpicpgx.org/",
+        ),
+        (
+            "NCCN — Breast Cancer",
+            "Current oncology guidance; access and recommendations may "
+            "depend on the guideline version.",
+            "https://www.nccn.org/",
+        ),
+        (
+            "FDA — Drug labels",
+            "Check current prescribing information and interaction warnings.",
+            "https://www.accessdata.fda.gov/scripts/cder/daf/",
+        ),
+        (
+            "NCI — Breast Cancer",
+            "Authoritative background on breast cancer and treatment.",
+            "https://www.cancer.gov/types/breast",
+        ),
+        (
+            "PubMed",
+            "Search primary studies and systematic reviews.",
+            "https://pubmed.ncbi.nlm.nih.gov/",
+        ),
+    ]
+
+    for title, description, url in sources:
+        with st.container(border=True):
+            st.markdown(f"### {title}")
+            st.write(description)
+            st.link_button("Open source", url)
+
+    st.markdown("### Evidence audit")
+    st.write(
+        "- Record the exact guideline title, version, and access date.\n"
+        "- Link each clinical rule to a supporting source.\n"
+        "- Separate guideline recommendations from hypotheses.\n"
+        "- Do not present an exploratory algorithm as a validated clinical model."
+    )
+
+# -------------------- FOOTER --------------------
+
+st.markdown("---")
+st.caption(
+    "OncoPGx • Educational precision-oncology prototype • "
+    "Clinical decisions remain with qualified healthcare professionals."
+)
