@@ -338,8 +338,9 @@ with st.sidebar.form("patient_profile_form"):
     treatment_setting = st.selectbox(
         "Treatment setting",
         [
+            "Neoadjuvant endocrine therapy",
             "Adjuvant",
-            "Metastatic",
+            "Metastatic / advanced disease",
             "Risk reduction / DCIS",
             "Other / unknown"
         ]
@@ -347,7 +348,7 @@ with st.sidebar.form("patient_profile_form"):
 
     prescribed_dose = st.selectbox(
         "Currently prescribed tamoxifen dose",
-        ["Unknown", "10 mg/day", "20 mg/day", "40 mg/day", "Other"]
+        ["Not yet prescribed / screening", "Unknown", "10 mg/day", "20 mg/day", "40 mg/day", "Other"]
     )
 
     cyp2d6 = st.selectbox(
@@ -559,11 +560,10 @@ page = st.sidebar.radio(
         "Drug Interaction Checker",
         "Dosage Decision Support",
         "Toxicity Screening",
-        "Pharmacovigilance",
         "Renal & Hepatic Labs",
         "Endoxifen TDM",
         "PK/AUC Sandbox",
-        "PV Registry & Reports",
+        "Pharmacovigilance & Registry",
         "Guidelines & Evidence",
     ],
 )
@@ -846,8 +846,9 @@ elif page == "Dosage Decision Support":
     setting = st.selectbox(
         "Clinical context",
         [
-            "Adjuvant treatment",
-            "Metastatic disease",
+            "Neoadjuvant endocrine therapy (before surgery)",
+            "Adjuvant treatment (after surgery)",
+            "Metastatic / advanced disease",
             "Risk reduction / DCIS",
             "Other / not specified",
         ],
@@ -885,12 +886,30 @@ elif page == "Dosage Decision Support":
     )
 
     st.markdown("### Standard reference")
-    st.metric("Common adult adjuvant reference (when endocrine therapy is indicated)", "Tamoxifen 20 mg/day")
+    st.metric("Common tamoxifen reference (when selected for an appropriate indication)", "20 mg/day")
     st.caption(
-        "This is a reference dose, not a personalised recommendation. The "
-        "appropriate regimen depends on confirmed hormone-receptor status, "
-        "stage/setting, menopausal status, product labeling and the oncology plan."
+        "20 mg/day is a common standard tamoxifen regimen, not a universal dose for every breast-cancer setting. "
+        "Use only when tamoxifen is clinically indicated and selected by the treating team; "
+        "confirm the exact indication, local product label, receptor status, stage, menopausal status and regimen."
     )
+
+    st.markdown("### Treatment-setting check")
+    if setting == "Neoadjuvant endocrine therapy (before surgery)":
+        st.info(
+            "Neoadjuvant endocrine therapy is a selected option for hormone-receptor-positive disease, not a universal treatment for all breast cancers. "
+            "In postmenopausal ER-positive disease an aromatase inhibitor is often considered; tamoxifen may be selected in specific clinical circumstances. "
+            "Premenopausal treatment requires specialist assessment. This prototype cannot choose the regimen from setting alone."
+        )
+    elif setting == "Metastatic / advanced disease":
+        st.info(
+            "For HR-positive advanced/metastatic disease, endocrine treatment choice depends on prior treatment, disease course, menopausal status, biomarkers and current oncology guidance. "
+            "The adjuvant reference dose shown above is not a standalone metastatic-treatment recommendation."
+        )
+    elif setting == "Risk reduction / DCIS":
+        st.info(
+            "Risk reduction/DCIS has a different benefit–risk discussion and may have indication-specific regimens. "
+            "Do not transfer a CYP2D6-based treatment rule automatically to every prevention scenario."
+        )
 
     st.markdown("### Initial receptor-status check")
     if er_status_dose == "Negative":
@@ -924,39 +943,43 @@ elif page == "Dosage Decision Support":
     st.markdown("### Context-aware discussion output")
     if er_status_dose != "Positive":
         st.info(
-            "No tamoxifen dose recommendation is generated because ER positivity "
-            "has not been confirmed. The 20 mg/day reference above is not a "
-            "recommendation for this scenario."
+            "No tamoxifen dose recommendation is generated because ER positivity has not been confirmed. "
+            "The 20 mg/day reference above is not a recommendation for this scenario."
+        )
+    elif setting == "Risk reduction / DCIS":
+        st.warning(
+            "Risk-reduction/DCIS context: confirm the exact indication, local product label and specialist plan. "
+            "Do not automatically apply CYP2D6-based dose escalation rules developed for adjuvant treatment of invasive ER-positive breast cancer."
+        )
+    elif setting in (
+        "Neoadjuvant endocrine therapy (before surgery)",
+        "Metastatic / advanced disease",
+        "Other / not specified",
+    ):
+        st.warning(
+            "This treatment setting needs a setting-specific oncology plan. CPIC CYP2D6–tamoxifen recommendations are not a universal dose algorithm for every neoadjuvant, metastatic or unspecified scenario. "
+            "Do not change to 40 mg/day from genotype alone; confirm the chosen endocrine regimen, prior therapy, menopausal status, interactions and applicable current guideline."
         )
     elif phenotype in ("Poor metabolizer", "Intermediate metabolizer"):
         if menopause == "Postmenopausal":
             st.warning(
-                "Reduced CYP2D6 activity scenario: discuss an aromatase inhibitor "
-                "as an alternative with oncology, if clinically suitable. If an AI "
-                "is contraindicated or not tolerated, tamoxifen 40 mg/day may be "
-                "considered by the prescriber in selected cases; it does not "
-                "guarantee normal endoxifen exposure."
+                "Adjuvant ER-positive reduced-CYP2D6-activity scenario: discuss an aromatase inhibitor as an alternative with oncology, if clinically suitable. "
+                "If an AI is contraindicated or not tolerated, tamoxifen 40 mg/day may be considered by the prescriber in selected cases; it does not guarantee normal endoxifen exposure."
             )
         elif menopause == "Premenopausal":
             st.warning(
-                "Reduced CYP2D6 activity scenario: discuss an aromatase inhibitor "
-                "PLUS ovarian function suppression with oncology if appropriate. "
-                "If this approach is unsuitable, the prescriber may consider other "
-                "options; tamoxifen 40 mg/day is not an automatic first choice."
+                "Adjuvant ER-positive reduced-CYP2D6-activity scenario: discuss an aromatase inhibitor PLUS ovarian function suppression with oncology if appropriate. "
+                "If this approach is unsuitable, the prescriber may consider other options; tamoxifen 40 mg/day is not an automatic first choice."
             )
         else:
             st.warning(
-                "Reduced CYP2D6 activity scenario: first clarify menopausal status "
-                "and review interacting medicines. An AI alone is not an appropriate "
-                "default for a premenopausal patient; ovarian function suppression "
-                "may be required if an AI strategy is chosen."
+                "Reduced CYP2D6 activity in an adjuvant scenario: first clarify menopausal status and review interacting medicines. "
+                "An AI alone is not an appropriate default for a premenopausal patient; ovarian function suppression may be required if an AI strategy is chosen."
             )
     else:
         st.info(
-            "For normal/ultrarapid or unknown CYP2D6 phenotype, do not escalate "
-            "tamoxifen solely from the phenotype label. If tamoxifen is the chosen "
-            "treatment for confirmed ER-positive disease, 20 mg/day is the common "
-            "reference dose; verify the complete clinical plan and interactions."
+            "For normal/ultrarapid or unknown CYP2D6 phenotype, do not escalate tamoxifen solely from the phenotype label. "
+            "If tamoxifen is selected for confirmed ER-positive adjuvant treatment, 20 mg/day is the common reference dose; verify the complete clinical plan and interactions."
         )
 
     st.markdown("### Factors for clinician review")
@@ -1141,69 +1164,6 @@ elif page == "Toxicity Screening":
         "dose recommendation is generated here."
     )
 
-# -------------------- PHARMACOVIGILANCE --------------------
-
-elif page == "Pharmacovigilance":
-    st.subheader("Pharmacovigilance and adverse-event review")
-
-    st.write(
-        "Tamoxifen safety monitoring includes thromboembolic events, "
-        "endometrial abnormalities or cancer, vasomotor symptoms, and "
-        "less common hepatic adverse effects. Risk varies by patient "
-        "and treatment context."
-    )
-
-    pv = pd.DataFrame([
-        {
-            "Safety topic": "Venous thromboembolism",
-            "Example signal": "Leg swelling, pain, sudden breathlessness",
-            "Response": "Urgent assessment when clinically suspected",
-        },
-        {
-            "Safety topic": "Endometrial effects",
-            "Example signal": "Abnormal vaginal bleeding",
-            "Response": "Clinical evaluation; follow appropriate guidance",
-        },
-        {
-            "Safety topic": "Vasomotor effects",
-            "Example signal": "Hot flashes or night sweats",
-            "Response": "Assess severity and discuss symptom management",
-        },
-        {
-            "Safety topic": "Hepatic effects",
-            "Example signal": "Jaundice or dark urine",
-            "Response": "Prompt clinical assessment",
-        },
-    ])
-    st.dataframe(pv, use_container_width=True, hide_index=True)
-
-    st.markdown("### Demonstration report form")
-    with st.form("pv_demo"):
-        event = st.selectbox(
-            "Event category",
-            ["Hot flashes", "VTE concern", "Abnormal bleeding", "Hepatic concern", "Other"],
-        )
-        seriousness = st.selectbox(
-            "Seriousness (demo classification)",
-            ["Not assessed", "Non-serious", "Serious"],
-        )
-        outcome = st.selectbox(
-            "Outcome",
-            ["Unknown", "Recovering", "Recovered", "Ongoing", "Fatal"],
-        )
-        submitted = st.form_submit_button("Review demonstration report")
-
-    if submitted:
-        st.write({
-            "Event": event,
-            "Seriousness": seriousness,
-            "Outcome": outcome,
-        })
-        st.info(
-            "Demonstration only: this form does not submit to a regulator, "
-            "create a validated safety report, or establish causality."
-        )
-
 # -------------------- GUIDELINES & EVIDENCE --------------------
 
 elif page == "Guidelines & Evidence":
@@ -1217,10 +1177,18 @@ elif page == "Guidelines & Evidence":
     sources = [
         (
             "CPIC — CYP2D6 and tamoxifen",
-            "Clinical Pharmacogenetics Implementation Consortium guidance "
-            "on CYP2D6 genotype and tamoxifen therapy (2018 guideline; verify "
-            "whether newer local guidance applies).",
+            "CPIC 2018 CYP2D6–tamoxifen recommendations. Distinguish guideline recommendations from local oncology protocols and verify the latest applicable version.",
             "https://pmc.ncbi.nlm.nih.gov/articles/5931215/",
+        ),
+        (
+            "DPWG recommendations (summarised by NCBI Medical Genetics Summaries)",
+            "DPWG and CPIC approaches are not identical in every detail. Check the actual recommendation and its date; do not combine them into a fabricated single rule.",
+            "https://www.ncbi.nlm.nih.gov/books/NBK247013/",
+        ),
+        (
+            "NICE — Neoadjuvant endocrine therapy",
+            "Guidance discusses neoadjuvant endocrine therapy as an option for selected ER-positive disease; this is not a blanket indication for all breast cancers.",
+            "https://www.nice.org.uk/guidance/ng101/chapter/recommendations",
         ),
         (
             "NCCN — Breast Cancer",
@@ -1322,30 +1290,84 @@ elif page == "Renal & Hepatic Labs":
 
 elif page == "Endoxifen TDM":
     st.subheader("Endoxifen therapeutic drug monitoring (TDM)")
-    st.warning("Enter measured results only. This tool does not infer endoxifen from genotype, dose, adherence, or a simulated curve; no universal therapeutic threshold is applied.")
-    cols = ["recorded_at", "scenario_id", "sample_date", "endoxifen_value", "unit", "tamoxifen_dose_mg_day", "adherence", "notes"]
+    st.warning(
+        "Screening status is not a measured concentration. Do not enter zero just because a test has not been done, "
+        "and do not increase tamoxifen dose automatically from a low/absent value. Confirm assay, units, timing, adherence and treatment context with the clinical team."
+    )
+    cols = ["recorded_at", "scenario_id", "sample_date", "measurement_status", "endoxifen_value", "unit", "tamoxifen_dose_mg_day", "adherence", "notes"]
     history = read_local_csv(TDM_DB, cols)
     with st.form("tdm_entry_form"):
         scenario_id = st.text_input("Fictional scenario ID", value="DEMO-001")
         sample_date = st.date_input("Sample date", value=date.today())
-        level = st.number_input("Measured endoxifen value", min_value=0.0, max_value=100000.0, value=0.0, step=0.1, help="Enter the laboratory-reported numeric result.")
-        unit = st.selectbox("Unit as reported by lab", ["ng/mL", "nM", "µg/L", "Other / specify in notes"])
-        dose = st.selectbox("Prescribed tamoxifen dose (mg/day)", ["Unknown", "10", "20", "40", "Other"])
-        adher = st.selectbox("Adherence context", ["Unknown", "Reported consistent", "Missed doses reported", "Recently changed"])
-        notes = st.text_input("Notes (optional; no identifying details)")
-        add_tdm = st.form_submit_button("Save measured result")
-    if add_tdm:
-        if level <= 0:
-            st.error("Enter a positive measured value. Use zero only if that is a valid lab result and document the context separately.")
+        measurement_status = st.selectbox(
+            "Endoxifen measurement status",
+            ["Not measured / screening only", "Measured result available", "Reported below assay detection limit"]
+        )
+        if measurement_status == "Measured result available":
+            level = st.number_input(
+                "Measured endoxifen value (as reported by lab)",
+                min_value=0.0, max_value=100000.0, value=0.0, step=0.1,
+                help="A true measured zero is unusual; verify the laboratory report and detection/quantification limit before saving."
+            )
         else:
-            row = {"recorded_at": datetime.now().isoformat(timespec="seconds"), "scenario_id": scenario_id.strip() or "DEMO-001",
-                   "sample_date": sample_date.isoformat(), "endoxifen_value": level, "unit": unit,
-                   "tamoxifen_dose_mg_day": dose, "adherence": adher, "notes": notes}
+            level = None
+        unit = st.selectbox("Unit as reported by lab", ["ng/mL", "nM", "µg/L", "Other / specify in notes"])
+        dose = st.selectbox(
+            "Tamoxifen prescription status / dose",
+            ["Not yet prescribed (screening)", "Unknown", "10 mg/day", "20 mg/day", "40 mg/day", "Other"]
+        )
+        adher = st.selectbox("Adherence context", ["Not applicable / not started", "Unknown", "Reported consistent", "Missed doses reported", "Recently changed"])
+        notes = st.text_input("Notes (optional; no identifying details; include lab limit if relevant)")
+        add_tdm = st.form_submit_button("Save TDM / screening record")
+    if add_tdm:
+        if measurement_status == "Measured result available" and level is None:
+            st.error("A measured result is required when that status is selected.")
+        elif measurement_status == "Measured result available" and level == 0:
+            st.warning(
+                "You entered a measured value of zero. Verify that the report truly gives zero rather than 'not tested', "
+                "'not detected', or below the assay's quantification limit. Record the laboratory context in notes."
+            )
+            row = {
+                "recorded_at": datetime.now().isoformat(timespec="seconds"),
+                "scenario_id": scenario_id.strip() or "DEMO-001",
+                "sample_date": sample_date.isoformat(),
+                "measurement_status": measurement_status,
+                "endoxifen_value": level,
+                "unit": unit,
+                "tamoxifen_dose_mg_day": dose,
+                "adherence": adher,
+                "notes": notes
+            }
             history = append_local_row(TDM_DB, cols, row)
-            st.success("Saved to local CSV. On hosted platforms, local storage may be reset when the app restarts.")
+            st.success("Record saved as a reported measurement. This does not trigger a dose recommendation.")
+        else:
+            stored_level = level if measurement_status == "Measured result available" else ""
+            row = {
+                "recorded_at": datetime.now().isoformat(timespec="seconds"),
+                "scenario_id": scenario_id.strip() or "DEMO-001",
+                "sample_date": sample_date.isoformat(),
+                "measurement_status": measurement_status,
+                "endoxifen_value": stored_level,
+                "unit": unit if measurement_status != "Not measured / screening only" else "",
+                "tamoxifen_dose_mg_day": dose,
+                "adherence": adher,
+                "notes": notes
+            }
+            history = append_local_row(TDM_DB, cols, row)
+            if measurement_status == "Not measured / screening only":
+                st.info(
+                    "Saved as screening-only: endoxifen is recorded as not measured, not zero. "
+                    "If tamoxifen has not been prescribed, the app does not infer or recommend a dose."
+                )
+            elif measurement_status == "Reported below assay detection limit":
+                st.warning(
+                    "Saved as below the assay detection limit, not as numeric zero. Confirm the assay's reporting convention with the laboratory."
+                )
+            else:
+                st.success("Measured result saved. No automatic dose adjustment is generated.")
     history = read_local_csv(TDM_DB, cols)
     if not history.empty:
-        st.markdown("### Stored measured results")
+        st.markdown("### Stored measurements and screening records")
         scenario_filter = st.selectbox("Display scenario", ["All scenarios"] + sorted(history["scenario_id"].dropna().astype(str).unique().tolist()))
         shown = history if scenario_filter == "All scenarios" else history[history["scenario_id"].astype(str) == scenario_filter]
         st.dataframe(shown, use_container_width=True, hide_index=True)
@@ -1361,8 +1383,14 @@ elif page == "Endoxifen TDM":
                 st.plotly_chart(fig_tdm, use_container_width=True)
         st.download_button("Download TDM CSV", data=history.to_csv(index=False).encode("utf-8"), file_name="oncopgx_tdm_measurements.csv", mime="text/csv")
     else:
-        st.info("No TDM records saved yet.")
-    st.caption("Values in different units are plotted separately; the app does not convert them without a verified analyte-specific conversion and lab context.")
+        st.info("No TDM or screening records saved yet.")
+    st.markdown("### How to use this during screening")
+    st.write(
+        "1. If treatment has not started and endoxifen was not measured, select 'Not measured / screening only' and 'Not yet prescribed'. "
+        "2. Do not treat missing data as a zero concentration. 3. If a valid assay result is available during established therapy, record the value, unit, prescribed dose, adherence and timing. "
+        "4. Interpret low or below-limit results only with the lab method and clinician; this prototype does not define a universal therapeutic threshold or calculate a replacement dose."
+    )
+    st.caption("Values in different units are plotted separately; the app does not convert units. Therapeutic thresholds and TDM-guided dose changes require assay- and context-specific evidence.")
 
 # -------------------- PK / AUC SANDBOX --------------------
 
@@ -1401,10 +1429,25 @@ elif page == "PK/AUC Sandbox":
 
 # -------------------- PV REGISTRY AND REPORT EXPORT --------------------
 
-elif page == "PV Registry & Reports":
-    st.subheader("Local pharmacovigilance registry and research exports")
+elif page == "Pharmacovigilance & Registry":
+    st.subheader("Pharmacovigilance, adverse-event review and registry")
     st.caption("Use fictional or properly de-identified records only. This local log is not connected to PvPI, a hospital EHR, or a regulator.")
-    pv_cols = ["report_id", "recorded_at", "scenario_id", "drug", "event_term", "onset_date", "seriousness", "outcome", "dechallenge", "rechallenge", "stage", "notes"]
+
+    st.markdown("### Safety review quick reference")
+    safety_reference = pd.DataFrame([
+        {"Safety topic": "Venous thromboembolism (VTE)", "Example signal": "New leg swelling/pain; sudden breathlessness or chest pain", "Review action": "Urgent assessment; emergency care for chest pain/sudden breathlessness"},
+        {"Safety topic": "Endometrial effects", "Example signal": "Abnormal vaginal bleeding", "Review action": "Prompt clinical evaluation; do not dismiss as a routine effect"},
+        {"Safety topic": "Vasomotor symptoms", "Example signal": "Hot flashes/night sweats", "Review action": "Assess severity, impact and symptom-management options"},
+        {"Safety topic": "Hepatic concern", "Example signal": "Jaundice or dark urine", "Review action": "Prompt clinical assessment and appropriate liver tests"},
+        {"Safety topic": "Other suspected adverse event", "Example signal": "Any new or worsening event during treatment", "Review action": "Document timing, suspected drug, concomitant medicines, seriousness and outcome"},
+    ])
+    st.dataframe(safety_reference, use_container_width=True, hide_index=True)
+    st.warning(
+        "A report records a suspected association; it does not by itself prove causality. "
+        "Serious or urgent symptoms require clinical care, not just registry entry."
+    )
+
+    pv_cols = ["report_id", "recorded_at", "scenario_id", "drug", "event_term", "onset_date", "seriousness", "outcome", "dechallenge", "rechallenge", "stage", "treatment_phase", "notes"]
     pv_df = read_local_csv(PV_DB, pv_cols)
     with st.form("pv_registry_form"):
         p1, p2 = st.columns(2)
@@ -1414,6 +1457,7 @@ elif page == "PV Registry & Reports":
             event_term = st.selectbox("Adverse event term", ["Hot flashes", "Venous thromboembolism concern", "Abnormal vaginal bleeding", "Hepatic concern", "Nausea", "Other"])
             onset = st.date_input("Event onset date", value=date.today(), key="pv_onset")
             stage = st.selectbox("Cancer stage (if relevant)", ["Unknown", "Stage 0 / DCIS", "Stage I", "Stage II", "Stage III", "Stage IV / metastatic"])
+            treatment_phase = st.selectbox("Treatment phase", ["Unknown", "Neoadjuvant (before surgery)", "Adjuvant (after surgery)", "Metastatic / advanced", "Risk reduction / DCIS", "Other"])
         with p2:
             serious = st.selectbox("Seriousness", ["Not assessed", "Non-serious", "Serious"])
             outcome = st.selectbox("Outcome", ["Unknown", "Recovering", "Recovered", "Ongoing", "Fatal"])
@@ -1427,7 +1471,7 @@ elif page == "PV Registry & Reports":
                "scenario_id": scenario.strip() or "DEMO-001", "drug": drug.strip() or "Unknown",
                "event_term": event_term, "onset_date": onset.isoformat(), "seriousness": serious,
                "outcome": outcome, "dechallenge": dechallenge, "rechallenge": rechallenge,
-               "stage": stage, "notes": pv_notes}
+               "stage": stage, "treatment_phase": treatment_phase, "notes": pv_notes}
         pv_df = append_local_row(PV_DB, pv_cols, row)
         st.success(f"Saved local demonstration record: {report_id}")
     pv_df = read_local_csv(PV_DB, pv_cols)
@@ -1456,6 +1500,7 @@ elif page == "PV Registry & Reports":
         "patient_profile": profile_export,
         "last_lab_scenario": st.session_state.get("last_lab_scenario", {}),
         "data_files": {"pv_registry": str(PV_DB), "tdm_measurements": str(TDM_DB)},
+        "clinical_scope": "Tamoxifen-focused educational prototype; not a universal oncology regimen selector.",
         "limitations": [
             "No validated individual toxicity prediction",
             "No autonomous prescribing or dose adjustment",
