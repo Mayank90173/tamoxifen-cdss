@@ -446,6 +446,26 @@ if profile:
         "Fictional research scenario — not a validated clinical assessment."
     )
 
+    # Surface receptor-status context early so an ER-negative scenario is not
+    # accidentally interpreted as a tamoxifen dosing scenario.
+    if profile.get("ER status") == "Negative":
+        st.error(
+            "INITIAL CHECK — ER-negative scenario: tamoxifen is not routine "
+            "endocrine treatment for confirmed ER-negative breast cancer. "
+            "Review complete pathology (including any ER/PR discordance), HER2, "
+            "stage and the oncology plan before discussing endocrine medicines."
+        )
+    elif profile.get("ER status") == "Unknown":
+        st.warning(
+            "INITIAL CHECK — ER status is unknown. Confirm tumour receptor status "
+            "before interpreting tamoxifen or aromatase-inhibitor options."
+        )
+    elif profile.get("ER status") == "Positive":
+        st.info(
+            "INITIAL CHECK — ER-positive scenario: endocrine therapy may be relevant, "
+            "but selection depends on stage, menopausal status and the oncology plan."
+        )
+
     st.markdown(
         f"### Patient: {profile['Patient ID']}"
     )
@@ -683,6 +703,29 @@ elif page == "CYP2D6 Pharmacogenomics":
                 "One no-function allele and one decreased-function allele."
             ),
         },
+        "*10/*10": {
+            "activity_score": "0.5",
+            "phenotype": "Intermediate metabolizer",
+            "interpretation": (
+                "Two decreased-function *10 alleles; verify the laboratory "
+                "star-allele calls and activity-score method."
+            ),
+        },
+        "*1/*4": {
+            "activity_score": "1.0",
+            "phenotype": "Intermediate metabolizer (guideline-specific interpretation)",
+            "interpretation": (
+                "One normal-function and one no-function allele. An activity "
+                "score of 1.0 can require allele- and guideline-specific interpretation."
+            ),
+        },
+        "*4/*4": {
+            "activity_score": "0",
+            "phenotype": "Poor metabolizer",
+            "interpretation": (
+                "Two no-function alleles in this illustrative example."
+            ),
+        },
     }
 
     selected_genotype = st.selectbox(
@@ -706,9 +749,10 @@ elif page == "CYP2D6 Pharmacogenomics":
     st.info(genotype_info["interpretation"])
 
     st.caption(
-        "Educational examples only. Confirm allele function, copy-number "
-        "variation, activity score and phenotype using the actual "
-        "laboratory report and applicable clinical guidance. "
+        "Educational examples only. Activity scores and phenotype labels can "
+        "depend on the allele-function table and guideline version. Confirm allele "
+        "function, copy-number/hybrid variation, activity score and phenotype using "
+        "the actual laboratory report and applicable clinical guidance. "
         "Do not infer a person's genotype from ancestry."
     )
 
@@ -812,6 +856,16 @@ elif page == "Dosage Decision Support":
         "Menopausal status",
         ["Unknown", "Premenopausal", "Postmenopausal", "Uncertain"],
     )
+    er_status_dose = st.selectbox(
+        "Estrogen receptor (ER) status",
+        ["Positive", "Negative", "Unknown / discordant"],
+        help="Endocrine therapy decisions depend on confirmed tumour receptor status.",
+    )
+    pr_status_dose = st.selectbox(
+        "Progesterone receptor (PR) status",
+        ["Positive", "Negative", "Unknown"],
+        help="An ER-negative / PR-positive result is uncommon and may warrant pathology review.",
+    )
     phenotype = st.selectbox(
         "CYP2D6 phenotype",
         list(PHENOTYPES.keys()),
@@ -831,12 +885,79 @@ elif page == "Dosage Decision Support":
     )
 
     st.markdown("### Standard reference")
-    st.metric("Common adult tamoxifen reference", "20 mg/day")
+    st.metric("Common adult adjuvant reference (when endocrine therapy is indicated)", "Tamoxifen 20 mg/day")
     st.caption(
-        "The appropriate regimen depends on indication, product labeling, "
-        "treatment plan, and the prescribing clinician. This reference "
-        "does not establish that 20 mg/day is appropriate for every setting."
+        "This is a reference dose, not a personalised recommendation. The "
+        "appropriate regimen depends on confirmed hormone-receptor status, "
+        "stage/setting, menopausal status, product labeling and the oncology plan."
     )
+
+    st.markdown("### Initial receptor-status check")
+    if er_status_dose == "Negative":
+        if pr_status_dose == "Positive":
+            st.error(
+                "ER-negative / PR-positive result: tamoxifen should not be "
+                "assumed effective. This uncommon/discordant pattern warrants "
+                "pathology review and confirmation of ER/PR testing before an "
+                "endocrine-treatment decision. Do not auto-select tamoxifen or an AI."
+            )
+        else:
+            st.error(
+                "ER-negative tumour: tamoxifen and aromatase inhibitors are not "
+                "routine endocrine treatment for a confirmed ER-negative cancer. "
+                "Treatment should be guided by the full pathology (including HER2), "
+                "stage and oncology team; do not recommend tamoxifen 20 or 40 mg "
+                "on the basis of CYP2D6 alone."
+            )
+    elif er_status_dose == "Unknown / discordant":
+        st.warning(
+            "ER status is unknown/discordant: no endocrine drug or dose should "
+            "be inferred. Confirm the pathology report and receptor results first."
+        )
+    else:
+        st.success(
+            "ER-positive scenario: endocrine therapy may be relevant. Compare "
+            "options using menopausal status, clinical setting, contraindications "
+            "and the complete oncology plan."
+        )
+
+    st.markdown("### Context-aware discussion output")
+    if er_status_dose != "Positive":
+        st.info(
+            "No tamoxifen dose recommendation is generated because ER positivity "
+            "has not been confirmed. The 20 mg/day reference above is not a "
+            "recommendation for this scenario."
+        )
+    elif phenotype in ("Poor metabolizer", "Intermediate metabolizer"):
+        if menopause == "Postmenopausal":
+            st.warning(
+                "Reduced CYP2D6 activity scenario: discuss an aromatase inhibitor "
+                "as an alternative with oncology, if clinically suitable. If an AI "
+                "is contraindicated or not tolerated, tamoxifen 40 mg/day may be "
+                "considered by the prescriber in selected cases; it does not "
+                "guarantee normal endoxifen exposure."
+            )
+        elif menopause == "Premenopausal":
+            st.warning(
+                "Reduced CYP2D6 activity scenario: discuss an aromatase inhibitor "
+                "PLUS ovarian function suppression with oncology if appropriate. "
+                "If this approach is unsuitable, the prescriber may consider other "
+                "options; tamoxifen 40 mg/day is not an automatic first choice."
+            )
+        else:
+            st.warning(
+                "Reduced CYP2D6 activity scenario: first clarify menopausal status "
+                "and review interacting medicines. An AI alone is not an appropriate "
+                "default for a premenopausal patient; ovarian function suppression "
+                "may be required if an AI strategy is chosen."
+            )
+    else:
+        st.info(
+            "For normal/ultrarapid or unknown CYP2D6 phenotype, do not escalate "
+            "tamoxifen solely from the phenotype label. If tamoxifen is the chosen "
+            "treatment for confirmed ER-positive disease, 20 mg/day is the common "
+            "reference dose; verify the complete clinical plan and interactions."
+        )
 
     st.markdown("### Factors for clinician review")
     review_items = []
@@ -891,16 +1012,23 @@ elif page == "Dosage Decision Support":
 
     st.markdown("### Alternative endocrine approaches to discuss")
     st.write(
-        "- Aromatase inhibitor-based treatment when appropriate.\n"
-        "- Aromatase inhibitor plus ovarian function suppression in "
-        "selected premenopausal contexts.\n"
-        "- Other clinician-directed endocrine options when alternatives "
-        "are unsuitable."
+        "- For confirmed ER-positive disease after menopause: an aromatase inhibitor "
+        "may be an option if clinically suitable.\\n"
+        "- For confirmed ER-positive disease before menopause: an aromatase inhibitor "
+        "generally requires ovarian function suppression.\\n"
+        "- If aromatase inhibitors are unsuitable, the oncology team should review "
+        "other endocrine options and the reason for intolerance/contraindication.\\n"
+        "- For confirmed ER-negative disease, routine endocrine therapy with "
+        "tamoxifen or an aromatase inhibitor is generally not indicated."
     )
     st.caption(
-        "The options are context-dependent and are not individual treatment "
-        "recommendations. Verify current CPIC, oncology guidelines, and "
-        "product labeling."
+        "Guideline context: CPIC's CYP2D6–tamoxifen guidance supports standard "
+        "tamoxifen 20 mg/day for normal/ultrarapid metabolizers; for reduced "
+        "function, it discusses an AI (with ovarian suppression when premenopausal) "
+        "and allows 40 mg/day only as a clinician-considered alternative when an AI "
+        "cannot be used. 40 mg does not guarantee normal endoxifen exposure. "
+        "This prototype does not prescribe or change treatment. Verify current "
+        "CPIC, oncology guidelines, pathology and product labeling."
     )
 
 # -------------------- TOXICITY SCREENING --------------------
@@ -1090,8 +1218,9 @@ elif page == "Guidelines & Evidence":
         (
             "CPIC — CYP2D6 and tamoxifen",
             "Clinical Pharmacogenetics Implementation Consortium guidance "
-            "on CYP2D6 genotype and tamoxifen therapy.",
-            "https://cpicpgx.org/",
+            "on CYP2D6 genotype and tamoxifen therapy (2018 guideline; verify "
+            "whether newer local guidance applies).",
+            "https://pmc.ncbi.nlm.nih.gov/articles/5931215/",
         ),
         (
             "NCCN — Breast Cancer",
@@ -1108,6 +1237,13 @@ elif page == "Guidelines & Evidence":
             "NCI — Breast Cancer",
             "Authoritative background on breast cancer and treatment.",
             "https://www.cancer.gov/types/breast",
+        ),
+        (
+            "NCI — Hormone Therapy for Breast Cancer",
+            "Explains that endocrine therapy is used for hormone-receptor-positive "
+            "disease and that aromatase inhibitors generally require ovarian "
+            "suppression in premenopausal patients.",
+            "https://www.cancer.gov/types/breast/treatment/hormone-therapy",
         ),
         (
             "PubMed",
